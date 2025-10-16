@@ -18,15 +18,71 @@ const Login = () => {
     formState: { errors }
   } = useForm();
 
+  // Test function to check if form is working
+  const testForm = () => {
+    console.log('=== TEST FORM FUNCTION CALLED ===');
+    alert('Test function called!');
+  };
+
+  // Test API directly
+  const testAPI = async () => {
+    console.log('=== TESTING API DIRECTLY ===');
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: '9876543210',
+          password: 'demo123'
+        })
+      });
+      
+      console.log('Direct fetch response:', response);
+      const data = await response.json();
+      console.log('Direct fetch data:', data);
+      alert('API test successful! Check console.');
+    } catch (error) {
+      console.error('Direct fetch error:', error);
+      alert('API test failed! Check console.');
+    }
+  };
+
   const onSubmit = async (data) => {
+    console.log('=== FORM SUBMITTED ===');
+    console.log('Form submitted with data:', data);
+    alert('Form submitted! Check console for details.');
     clearError();
-    const result = await login(data);
     
-    if (result.success) {
-      handleApiSuccess('Login successful!');
-      navigate('/dashboard');
-    } else {
-      handleApiError({ response: { data: { message: result.error } } });
+    try {
+      // Try direct fetch first (like the working test)
+      console.log('Trying direct fetch approach...');
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      });
+      
+      console.log('Direct fetch response:', response);
+      const result = await response.json();
+      console.log('Direct fetch result:', result);
+      
+      if (result.success) {
+        // Store token and user data
+        localStorage.setItem('token', result.data.token);
+        localStorage.setItem('user', JSON.stringify(result.data.user));
+        
+        handleApiSuccess('Login successful!');
+        navigate('/dashboard');
+      } else {
+        handleApiError({ response: { data: { message: result.message } } });
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      handleApiError(error);
     }
   };
 
@@ -73,7 +129,12 @@ const Login = () => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
           className="mt-8 space-y-6"
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={(e) => {
+            console.log('=== FORM ONSUBMIT EVENT ===');
+            console.log('Form errors:', errors);
+            console.log('Form state:', { isLoading, error });
+            handleSubmit(onSubmit)(e);
+          }}
         >
           <div className="space-y-4">
             {/* Phone Number */}
@@ -147,6 +208,23 @@ const Login = () => {
               <p className="text-sm text-red-600">{error}</p>
             </motion.div>
           )}
+
+          {/* Test Buttons */}
+          <button
+            type="button"
+            onClick={testForm}
+            className="w-full bg-blue-500 text-white py-2 px-4 rounded mb-2"
+          >
+            Test Button (Click Me)
+          </button>
+          
+          <button
+            type="button"
+            onClick={testAPI}
+            className="w-full bg-green-500 text-white py-2 px-4 rounded mb-2"
+          >
+            Test API Directly
+          </button>
 
           {/* Submit Button */}
           <motion.button

@@ -123,9 +123,12 @@ export const AuthProvider = ({ children }) => {
   // Login function
   const login = async (credentials) => {
     try {
+      console.log('AuthContext login called with:', credentials);
       dispatch({ type: AUTH_ACTIONS.LOGIN_START });
       
+      console.log('Making API call to authAPI.login...');
       const response = await authAPI.login(credentials);
+      console.log('API response received:', response);
       const { user, token } = response.data.data;
       
       // Store in localStorage
@@ -179,11 +182,14 @@ export const AuthProvider = ({ children }) => {
   // Logout function
   const logout = async () => {
     try {
-      // Try to call logout API
-      await authAPI.logout();
+      // Try to call logout API (optional - JWT logout is client-side)
+      try {
+        await authAPI.logout();
+      } catch (apiError) {
+        console.log('Logout API call failed, continuing with local logout:', apiError);
+      }
     } catch (error) {
-      console.error('Logout API error:', error);
-      // Continue with local logout even if API fails
+      console.error('Logout error:', error);
     } finally {
       // Always clear localStorage and local state
       localStorage.removeItem('token');

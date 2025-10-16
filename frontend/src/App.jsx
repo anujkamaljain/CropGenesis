@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Pages
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -48,10 +49,16 @@ const AppRoutes = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {isAuthenticated && <Navbar />}
+      <Navbar />
       
-      <main className={isAuthenticated ? 'pt-16' : ''}>
+      <main className="pt-16">
         <Routes>
+          {/* Home Route - accessible to all */}
+          <Route 
+            path="/" 
+            element={<Home />} 
+          />
+          
           {/* Public Routes */}
           <Route 
             path="/login" 
@@ -110,12 +117,6 @@ const AppRoutes = () => {
                 <Profile />
               </ProtectedRoute>
             } 
-          />
-          
-          {/* Default redirect */}
-          <Route 
-            path="/" 
-            element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} 
           />
           
           {/* 404 route */}

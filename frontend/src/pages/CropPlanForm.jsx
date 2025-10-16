@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { 
-  Sprout, 
+  Upload, 
+  Camera,
   ArrowLeft, 
   Loader2,
   CheckCircle,
@@ -21,6 +22,9 @@ const CropPlanForm = () => {
   const [followUpQuestion, setFollowUpQuestion] = useState('');
   const [isGeneratingFollowUp, setIsGeneratingFollowUp] = useState(false);
   const [followUpResponse, setFollowUpResponse] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  const [irrigationMethod, setIrrigationMethod] = useState('');
 
   const {
     register,
@@ -30,17 +34,42 @@ const CropPlanForm = () => {
   } = useForm();
 
   const onSubmit = async (data) => {
+    console.log('Form submitted with data:', data);
+    console.log('Current irrigation method:', irrigationMethod);
+    console.log('Form errors:', errors);
+    
+    // Manual validation for custom irrigation
+    if (irrigationMethod === 'other' && (!data.customIrrigation || data.customIrrigation.trim() === '')) {
+      alert('Please specify the irrigation method when "Other" is selected.');
+      return;
+    }
+    
     try {
       setIsGenerating(true);
       setGeneratedPlan(null);
       setFollowUpResponse(null);
 
-      const response = await cropPlanAPI.generate(data);
+      // Prepare data according to backend expectations
+      const requestData = {
+        soilType: data.soilType,
+        landSize: parseFloat(data.landSize) || 0,
+        irrigation: data.irrigation === 'other' ? data.customIrrigation : data.irrigation,
+        season: data.season,
+        preferredLanguage: data.language || 'en',
+        additionalNotes: data.description || ''
+      };
+
+      console.log('Sending data to API:', requestData);
+
+      const response = await cropPlanAPI.generate(requestData);
       
       if (response.data.success) {
         setGeneratedPlan(response.data.data);
         handleApiSuccess('Crop plan generated successfully!');
         reset(); // Clear form
+        setSelectedImages([]);
+        setSelectedVideo(null);
+        setIrrigationMethod('');
       }
     } catch (error) {
       handleApiError(error);
@@ -73,34 +102,39 @@ const CropPlanForm = () => {
     }
   };
 
-  const soilTypes = [
-    { value: 'clay', label: 'Clay' },
-    { value: 'sandy', label: 'Sandy' },
-    { value: 'loamy', label: 'Loamy' },
-    { value: 'silty', label: 'Silty' },
-    { value: 'peaty', label: 'Peaty' },
-    { value: 'chalky', label: 'Chalky' },
-    { value: 'unknown', label: 'Unknown' }
-  ];
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    setSelectedImages(prev => [...prev, ...files]);
+  };
 
-  const irrigationTypes = [
-    { value: 'drip', label: 'Drip Irrigation' },
-    { value: 'sprinkler', label: 'Sprinkler' },
-    { value: 'flood', label: 'Flood Irrigation' },
-    { value: 'manual', label: 'Manual Watering' },
-    { value: 'rainfed', label: 'Rainfed' },
-    { value: 'mixed', label: 'Mixed' }
-  ];
+  const handleVideoUpload = (e) => {
+    const file = e.target.files[0];
+    setSelectedVideo(file);
+  };
 
-  const seasons = [
-    { value: 'kharif', label: 'Kharif (Monsoon)' },
-    { value: 'rabi', label: 'Rabi (Winter)' },
-    { value: 'zaid', label: 'Zaid (Summer)' },
-    { value: 'year-round', label: 'Year Round' }
+  const removeImage = (index) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeVideo = () => {
+    setSelectedVideo(null);
+  };
+
+  const languages = [
+    { value: 'en', label: 'English' },
+    { value: 'hi', label: 'Hindi' },
+    { value: 'te', label: 'Telugu' },
+    { value: 'ta', label: 'Tamil' },
+    { value: 'bn', label: 'Bengali' },
+    { value: 'mr', label: 'Marathi' },
+    { value: 'gu', label: 'Gujarati' },
+    { value: 'kn', label: 'Kannada' },
+    { value: 'ml', label: 'Malayalam' },
+    { value: 'pa', label: 'Punjabi' }
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <motion.div
@@ -110,50 +144,91 @@ const CropPlanForm = () => {
         >
           <Link
             to="/dashboard"
-            className="inline-flex items-center text-primary-600 hover:text-primary-700 mb-4 transition-colors duration-200"
+            className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4 transition-colors duration-200"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Link>
-          
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mr-4">
-              <Sprout className="w-6 h-6 text-primary-600" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Crop Plan Generator</h1>
-              <p className="text-gray-600">Get AI-powered crop recommendations based on your farm conditions</p>
-            </div>
-          </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Form */}
+        {/* Form Card */}
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-          >
-            <div className="card">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Farm Details</h2>
+          className="bg-white rounded-lg shadow-lg p-8"
+        >
+          {/* Title */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-800">
+              Agricultural Planning Input Form
+            </h1>
+          </div>
               
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(
+            (data) => {
+              console.log('Form validation passed, submitting:', data);
+              onSubmit(data);
+            },
+            (errors) => {
+              console.log('Form validation failed:', errors);
+              console.log('Validation errors details:', errors);
+            }
+          )} className="space-y-6">
+            {/* Preferred Language */}
+            <div>
+              <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-2">
+                Preferred language for explanation
+              </label>
+              <select
+                {...register('language')}
+                id="language"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                defaultValue="en"
+              >
+                {languages.map((lang) => (
+                  <option key={lang.value} value={lang.value}>
+                    {lang.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Location */}
+            <div>
+              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+                Location <span className="text-red-500">*</span>
+              </label>
+              <input
+                {...register('location', { required: 'Location is required' })}
+                type="text"
+                id="location"
+                placeholder="Enter location"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {errors.location && (
+                <p className="mt-1 text-sm text-red-600">{errors.location.message}</p>
+              )}
+            </div>
+
                 {/* Soil Type */}
                 <div>
                   <label htmlFor="soilType" className="block text-sm font-medium text-gray-700 mb-2">
-                    Soil Type *
+                Soil Type <span className="text-red-500">*</span>
                   </label>
                   <select
                     {...register('soilType', { required: 'Soil type is required' })}
                     id="soilType"
-                    className="input-field"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Select soil type</option>
-                    {soilTypes.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
+                <option value="clay">Clay</option>
+                <option value="sandy">Sandy</option>
+                <option value="loamy">Loamy</option>
+                <option value="silty">Silty</option>
+                <option value="peaty">Peaty</option>
+                <option value="chalky">Chalky</option>
+                <option value="unknown">Unknown</option>
                   </select>
                   {errors.soilType && (
                     <p className="mt-1 text-sm text-red-600">{errors.soilType.message}</p>
@@ -163,161 +238,247 @@ const CropPlanForm = () => {
                 {/* Land Size */}
                 <div>
                   <label htmlFor="landSize" className="block text-sm font-medium text-gray-700 mb-2">
-                    Land Size (acres) *
+                Land Size <span className="text-red-500">*</span>
                   </label>
                   <input
-                    {...register('landSize', {
-                      required: 'Land size is required',
-                      min: { value: 0.1, message: 'Minimum 0.1 acres' },
-                      max: { value: 1000, message: 'Maximum 1000 acres' }
-                    })}
-                    type="number"
-                    step="0.1"
+                {...register('landSize', { required: 'Land size is required' })}
+                type="text"
                     id="landSize"
-                    className="input-field"
-                    placeholder="Enter land size in acres"
+                placeholder="Enter land size"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   {errors.landSize && (
                     <p className="mt-1 text-sm text-red-600">{errors.landSize.message}</p>
+              )}
+            </div>
+
+            {/* Last Crop */}
+            <div>
+              <label htmlFor="lastCrop" className="block text-sm font-medium text-gray-700 mb-2">
+                Last Crop <span className="text-red-500">*</span>
+              </label>
+              <input
+                {...register('lastCrop', { required: 'Last crop is required' })}
+                type="text"
+                id="lastCrop"
+                placeholder="Enter last crop"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {errors.lastCrop && (
+                <p className="mt-1 text-sm text-red-600">{errors.lastCrop.message}</p>
                   )}
                 </div>
 
                 {/* Irrigation */}
                 <div>
                   <label htmlFor="irrigation" className="block text-sm font-medium text-gray-700 mb-2">
-                    Irrigation Type *
+                Irrigation <span className="text-red-500">*</span>
                   </label>
                   <select
-                    {...register('irrigation', { required: 'Irrigation type is required' })}
+                {...register('irrigation', { required: 'Irrigation method is required' })}
                     id="irrigation"
-                    className="input-field"
-                  >
-                    <option value="">Select irrigation type</option>
-                    {irrigationTypes.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(e) => setIrrigationMethod(e.target.value)}
+              >
+                <option value="">Select irrigation method</option>
+                <option value="drip">Drip Irrigation</option>
+                <option value="sprinkler">Sprinkler Irrigation</option>
+                <option value="flood">Flood Irrigation</option>
+                <option value="manual">Manual Watering</option>
+                <option value="rainfed">Rain-fed</option>
+                <option value="mixed">Mixed</option>
+                <option value="other">Other</option>
                   </select>
                   {errors.irrigation && (
                     <p className="mt-1 text-sm text-red-600">{errors.irrigation.message}</p>
+                  )}
+              
+              {/* Custom irrigation method input */}
+              {irrigationMethod === 'other' && (
+                <div className="mt-3">
+                  <label htmlFor="customIrrigation" className="block text-sm font-medium text-gray-700 mb-2">
+                    Specify irrigation method <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    {...register('customIrrigation')}
+                    type="text"
+                    id="customIrrigation"
+                    placeholder="Enter your irrigation method"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.customIrrigation && (
+                    <p className="mt-1 text-sm text-red-600">{errors.customIrrigation.message}</p>
+                  )}
+                </div>
                   )}
                 </div>
 
                 {/* Season */}
                 <div>
                   <label htmlFor="season" className="block text-sm font-medium text-gray-700 mb-2">
-                    Season *
+                Season <span className="text-red-500">*</span>
                   </label>
                   <select
                     {...register('season', { required: 'Season is required' })}
                     id="season"
-                    className="input-field"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Select season</option>
-                    {seasons.map((season) => (
-                      <option key={season.value} value={season.value}>
-                        {season.label}
-                      </option>
-                    ))}
+                <option value="kharif">Kharif (Monsoon - June to October)</option>
+                <option value="rabi">Rabi (Winter - October to March)</option>
+                <option value="zaid">Zaid (Summer - March to June)</option>
+                <option value="spring">Spring (March to May)</option>
+                <option value="summer">Summer (May to July)</option>
+                <option value="monsoon">Monsoon (July to September)</option>
+                <option value="autumn">Autumn (September to November)</option>
+                <option value="winter">Winter (November to February)</option>
+                <option value="year-round">Year Round</option>
                   </select>
                   {errors.season && (
                     <p className="mt-1 text-sm text-red-600">{errors.season.message}</p>
                   )}
                 </div>
 
-                {/* Language Preference */}
+            {/* Additional Description */}
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                Additional Description
+              </label>
+              <textarea
+                {...register('description')}
+                id="description"
+                rows={4}
+                placeholder="Enter description (optional)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Upload Images */}
                 <div>
-                  <label htmlFor="preferredLanguage" className="block text-sm font-medium text-gray-700 mb-2">
-                    Language Preference
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Upload Images (optional)
+              </label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
+                <input
+                  type="file"
+                  id="images"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="images"
+                  className="cursor-pointer flex flex-col items-center"
+                >
+                  <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                  <span className="text-gray-600">Click to upload images</span>
                   </label>
-                  <select
-                    {...register('preferredLanguage')}
-                    id="preferredLanguage"
-                    className="input-field"
-                  >
-                    <option value="">Use account default</option>
-                    <option value="en">English</option>
-                    <option value="hi">Hindi</option>
-                    <option value="te">Telugu</option>
-                    <option value="ta">Tamil</option>
-                    <option value="bn">Bengali</option>
-                    <option value="mr">Marathi</option>
-                    <option value="gu">Gujarati</option>
-                    <option value="kn">Kannada</option>
-                    <option value="ml">Malayalam</option>
-                    <option value="or">Odia</option>
-                    <option value="pa">Punjabi</option>
-                    <option value="as">Assamese</option>
-                  </select>
-                  {errors.preferredLanguage && (
-                    <p className="mt-1 text-sm text-red-600">{errors.preferredLanguage.message}</p>
+              </div>
+              {selectedImages.length > 0 && (
+                <div className="mt-2">
+                  {selectedImages.map((image, index) => (
+                    <div key={index} className="flex items-center justify-between bg-gray-100 p-2 rounded mb-1">
+                      <span className="text-sm text-gray-700">{image.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
                   )}
                 </div>
 
-                {/* Additional Notes */}
+            {/* Upload Video */}
                 <div>
-                  <label htmlFor="additionalNotes" className="block text-sm font-medium text-gray-700 mb-2">
-                    Additional Notes
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Upload Video (optional)
                   </label>
-                  <textarea
-                    {...register('additionalNotes')}
-                    id="additionalNotes"
-                    rows={4}
-                    className="input-field"
-                    placeholder="Any specific requirements, previous crops, or additional information..."
-                  />
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
+                <input
+                  type="file"
+                  id="video"
+                  accept="video/*"
+                  onChange={handleVideoUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="video"
+                  className="cursor-pointer flex flex-col items-center"
+                >
+                  <Camera className="w-8 h-8 text-gray-400 mb-2" />
+                  <span className="text-gray-600">Click to upload video</span>
+                </label>
+              </div>
+              {selectedVideo && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between bg-gray-100 p-2 rounded">
+                    <span className="text-sm text-gray-700">{selectedVideo.name}</span>
+                    <button
+                      type="button"
+                      onClick={removeVideo}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )}
                 </div>
 
                 {/* Submit Button */}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+            <div className="pt-4">
+              <button
                   type="submit"
                   disabled={isGenerating}
-                  className="w-full btn-primary flex items-center justify-center py-3"
+                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isGenerating ? (
-                    <>
+                  <div className="flex items-center justify-center">
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                       Generating Plan...
-                    </>
+                  </div>
                   ) : (
-                    <>
-                      <Sprout className="w-5 h-5 mr-2" />
-                      Generate Crop Plan
-                    </>
+                  'Submit Form'
                   )}
-                </motion.button>
-              </form>
+              </button>
             </div>
+          </form>
           </motion.div>
 
-          {/* Results */}
+        {/* Results Section */}
+        {isGenerating && (
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-8 bg-white rounded-lg shadow-lg p-8 text-center"
           >
-            {isGenerating && (
-              <div className="card text-center">
                 <LoadingSpinner size="lg" className="mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Generating Your Crop Plan</h3>
                 <p className="text-gray-600">Our AI is analyzing your farm conditions and creating a personalized plan...</p>
-              </div>
+          </motion.div>
             )}
 
             {generatedPlan && (
-              <div className="space-y-6">
-                {/* Generated Plan */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="card"
+            className="mt-8 space-y-6"
                 >
+            {/* Generated Plan */}
+            <div className="bg-white rounded-lg shadow-lg p-8">
                   <div className="flex items-center mb-4">
                     <CheckCircle className="w-6 h-6 text-green-600 mr-2" />
                     <h3 className="text-lg font-semibold text-gray-900">Your Crop Plan</h3>
+                  </div>
+                  
+                  <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-green-800 font-medium">✅ Crop plan generated successfully!</p>
+                    <p className="text-green-700 text-sm mt-1">Your personalized agricultural plan is ready below.</p>
                   </div>
                   
                   <div className="prose max-w-none">
@@ -332,77 +493,57 @@ const CropPlanForm = () => {
                       <AudioPlayer audioURL={generatedPlan.audioURL} />
                     </div>
                   )}
-                </motion.div>
+            </div>
 
                 {/* Follow-up Questions */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="card"
-                >
-                  <div className="flex items-center mb-4">
-                    <MessageCircle className="w-5 h-5 text-primary-600 mr-2" />
-                    <h3 className="text-lg font-semibold text-gray-900">Ask a Follow-up Question</h3>
-                  </div>
+            <div className="bg-white rounded-lg shadow-lg p-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Ask Follow-up Questions</h3>
                   
                   <div className="space-y-4">
+                <div>
                     <textarea
                       value={followUpQuestion}
                       onChange={(e) => setFollowUpQuestion(e.target.value)}
-                      placeholder="Ask any question about your crop plan..."
-                      className="input-field"
+                    placeholder="Ask any questions about your crop plan..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       rows={3}
                     />
+                </div>
                     
                     <button
                       onClick={handleFollowUp}
                       disabled={!followUpQuestion.trim() || isGeneratingFollowUp}
-                      className="btn-primary w-full flex items-center justify-center"
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isGeneratingFollowUp ? (
-                        <>
+                    <div className="flex items-center">
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           Generating Response...
-                        </>
+                    </div>
                       ) : (
                         'Ask Question'
                       )}
                     </button>
                   </div>
 
-                  {/* Follow-up Response */}
                   {followUpResponse && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-6 p-4 bg-gray-50 rounded-lg"
-                    >
-                      <h4 className="font-medium text-gray-900 mb-2">Response:</h4>
-                      <div className="whitespace-pre-wrap text-gray-700 mb-4">
-                        {followUpResponse.answer}
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center mb-2">
+                    <MessageCircle className="w-5 h-5 text-blue-600 mr-2" />
+                    <h4 className="font-medium text-gray-900">Response</h4>
                       </div>
+                  <p className="text-gray-700">{followUpResponse.response}</p>
                       
                       {followUpResponse.audioURL && (
+                    <div className="mt-4">
                         <AudioPlayer audioURL={followUpResponse.audioURL} />
-                      )}
-                    </motion.div>
+                    </div>
                   )}
-                </motion.div>
-              </div>
-            )}
-
-            {!isGenerating && !generatedPlan && (
-              <div className="card text-center py-12">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Sprout className="w-8 h-8 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Ready to Generate</h3>
-                <p className="text-gray-600">Fill in your farm details on the left to get started</p>
+              )}
               </div>
-            )}
           </motion.div>
-        </div>
+        )}
       </div>
     </div>
   );
