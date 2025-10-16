@@ -14,7 +14,7 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
   }
   
   .btn-secondary {
@@ -22,11 +22,11 @@
   }
   
   .btn-outline {
-    @apply border border-primary-600 text-primary-600 hover:bg-primary-600 hover:text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
   }
   
   .input-field {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200;
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200;
   }
   
   .card {
@@ -40,14 +40,14 @@
 
 @layer utilities {
   .text-gradient {
-    @apply bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent;
   }
   
   .bg-gradient-primary {
-    @apply bg-gradient-to-br from-primary-500 to-primary-700;
+    @apply bg-gradient-to-br from-blue-500 to-blue-700;
   }
   
   .bg-gradient-secondary {
-    @apply bg-gradient-to-br from-secondary-400 to-secondary-600;
+    @apply bg-gradient-to-br from-blue-400 to-blue-600;
   }
 }

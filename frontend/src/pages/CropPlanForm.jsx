@@ -142,13 +142,6 @@ const CropPlanForm = () => {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <Link
-            to="/dashboard"
-            className="inline-flex items-center text-blue-600 hover:text-blue-700 mb-4 transition-colors duration-200"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Link>
         </motion.div>
 
         {/* Form Card */}

@@ -52,42 +52,20 @@ const Login = () => {
   const onSubmit = async (data) => {
     console.log('=== FORM SUBMITTED ===');
     console.log('Form submitted with data:', data);
-    alert('Form submitted! Check console for details.');
     clearError();
     
-    try {
-      // Try direct fetch first (like the working test)
-      console.log('Trying direct fetch approach...');
-      const response = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-      });
-      
-      console.log('Direct fetch response:', response);
-      const result = await response.json();
-      console.log('Direct fetch result:', result);
-      
-      if (result.success) {
-        // Store token and user data
-        localStorage.setItem('token', result.data.token);
-        localStorage.setItem('user', JSON.stringify(result.data.user));
-        
-        handleApiSuccess('Login successful!');
-        navigate('/dashboard');
-      } else {
-        handleApiError({ response: { data: { message: result.message } } });
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      handleApiError(error);
+    const result = await login(data);
+    
+    if (result.success) {
+      handleApiSuccess('Login successful!');
+      navigate('/');
+    } else {
+      handleApiError({ response: { data: { message: result.error } } });
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -99,7 +77,7 @@ const Login = () => {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2 }}
-            className="mx-auto h-16 w-16 bg-gradient-primary rounded-2xl flex items-center justify-center mb-4"
+            className="mx-auto h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center mb-4"
           >
             <Sprout className="h-8 w-8 text-white" />
           </motion.div>
@@ -209,22 +187,6 @@ const Login = () => {
             </motion.div>
           )}
 
-          {/* Test Buttons */}
-          <button
-            type="button"
-            onClick={testForm}
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded mb-2"
-          >
-            Test Button (Click Me)
-          </button>
-          
-          <button
-            type="button"
-            onClick={testAPI}
-            className="w-full bg-green-500 text-white py-2 px-4 rounded mb-2"
-          >
-            Test API Directly
-          </button>
 
           {/* Submit Button */}
           <motion.button
@@ -247,7 +209,7 @@ const Login = () => {
               Don't have an account?{' '}
               <Link
                 to="/register"
-                className="font-medium text-primary-600 hover:text-primary-500 transition-colors duration-200"
+                className="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-200"
               >
                 Sign up here
               </Link>
@@ -255,19 +217,6 @@ const Login = () => {
           </div>
         </motion.form>
 
-        {/* Demo Credentials */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          className="bg-blue-50 border border-blue-200 rounded-lg p-4"
-        >
-          <h3 className="text-sm font-medium text-blue-800 mb-2">Demo Credentials</h3>
-          <p className="text-xs text-blue-700">
-            Phone: 9876543210<br />
-            Password: demo123
-          </p>
-        </motion.div>
       </motion.div>
     </div>
   );

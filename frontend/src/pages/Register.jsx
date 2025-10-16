@@ -49,7 +49,7 @@ const Register = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -61,7 +61,7 @@ const Register = () => {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2 }}
-            className="mx-auto h-16 w-16 bg-gradient-primary rounded-2xl flex items-center justify-center mb-4"
+            className="mx-auto h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center mb-4"
           >
             <Sprout className="h-8 w-8 text-white" />
           </motion.div>
@@ -284,7 +284,7 @@ const Register = () => {
               Already have an account?{' '}
               <Link
                 to="/login"
-                className="font-medium text-primary-600 hover:text-primary-500 transition-colors duration-200"
+                className="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-200"
               >
                 Sign in here
               </Link>
