@@ -120,6 +120,16 @@ const CropPlanForm = () => {
     setSelectedVideo(null);
   };
 
+  const handleBackToForm = () => {
+    setGeneratedPlan(null);
+    setFollowUpQuestion('');
+    setFollowUpResponse(null);
+    setSelectedImages([]);
+    setSelectedVideo(null);
+    setIrrigationMethod('');
+    reset();
+  };
+
   const languages = [
     { value: 'en', label: 'English' },
     { value: 'hi', label: 'Hindi' },
@@ -144,7 +154,8 @@ const CropPlanForm = () => {
         >
         </motion.div>
 
-        {/* Form Card */}
+        {/* Form Card - Only show when no plan is generated */}
+        {!generatedPlan && (
           <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -442,6 +453,7 @@ const CropPlanForm = () => {
             </div>
           </form>
           </motion.div>
+        )}
 
         {/* Results Section */}
         {isGenerating && (
@@ -462,6 +474,17 @@ const CropPlanForm = () => {
                   animate={{ opacity: 1, y: 0 }}
             className="mt-8 space-y-6"
                 >
+            {/* Back to Form Button */}
+            <div className="flex justify-start mb-4">
+              <button
+                onClick={handleBackToForm}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Form
+              </button>
+            </div>
+
             {/* Generated Plan */}
             <div className="bg-white rounded-lg shadow-lg p-8">
                   <div className="flex items-center mb-4">
