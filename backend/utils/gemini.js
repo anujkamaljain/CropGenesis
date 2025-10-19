@@ -134,19 +134,20 @@ Additional Notes: ${additionalNotes || 'None'}
 Please provide a detailed crop plan in ${language} that includes:
 
 1. **Recommended Crops**: Suggest 3-5 suitable crops for the given conditions
-2. **Planting Schedule**: When to plant each crop
-3. **Soil Preparation**: How to prepare the soil
-4. **Fertilizer Requirements**: Organic and chemical fertilizer recommendations
-5. **Irrigation Schedule**: Watering frequency and methods
-6. **Pest Management**: Common pests and organic control methods
-7. **Harvest Timeline**: Expected harvest periods
-8. **Expected Yield**: Approximate yield per acre
-9. **Cost Estimation**: Rough cost breakdown for inputs
-10. **Tips**: Additional farming tips and best practices
+2. **Final Suggestion** : Out of above suggested 3-5 crops, suggest the best crop according to you which will be the most profitable and suitable for the given conditions, but with a warning that the crop is suggested by AI which may or may not be 100% accurate.
+3. **Planting Schedule**: When to plant the final suggested crop
+4. **Soil Preparation**: How to prepare the soil for final suggested crop
+5. **Fertilizer Requirements**: Organic and chemical fertilizer recommendations for final suggested crop
+6. **Irrigation Schedule**: Watering frequency and methods for final suggested crop
+7. **Pest Management**: Common pests and organic control methods for final suggested crop
+8. **Harvest Timeline**: Expected harvest periods for final suggested crop
+9. **Expected Yield**: Approximate yield per acre for final suggested crop
+10. **Cost Estimation**: Rough cost breakdown for inputs for final suggested crop
+11. **Tips**: Additional farming tips and best practices for final suggested crop
 
 Make the response practical, easy to understand, and suitable for Indian farming conditions. Use simple language that farmers can easily follow.
-
-Format the response in clear sections with headings. Keep the total response under 2000 words.
+and remember this response because farmer may ask you a follow up question regarding other left crops you suggested or the suggested one.
+Keep the total response under 3000 words.
 `;
 
     const result = await retryGeminiCall(() => 
