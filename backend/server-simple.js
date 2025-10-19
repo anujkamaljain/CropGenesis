@@ -90,30 +90,48 @@ app.post('/api/auth/login', (req, res) => {
   });
 });
 
-// Mock crop plan route
-app.post('/api/cropplan/generate', (req, res) => {
-  console.log('Crop plan request received:', req.body);
-  res.status(200).json({
-    success: true,
-    message: 'Crop plan generated successfully',
-    data: {
-      plan: {
-        id: 'mock-plan-id',
-        soilType: req.body.soilType,
-        landSize: req.body.landSize,
-        irrigation: req.body.irrigation,
-        season: req.body.season,
-        preferredLanguage: req.body.preferredLanguage,
-        recommendations: [
-          'Plant corn in rows with 30cm spacing',
-          'Use drip irrigation for water efficiency',
-          'Apply organic fertilizer before planting',
-          'Monitor soil moisture regularly'
-        ],
-        createdAt: new Date().toISOString()
-      }
+// Crop plan route with real Gemini integration
+app.post('/api/cropplan/generate', async (req, res) => {
+  try {
+    console.log('Crop plan request received:', req.body);
+    
+    const { generateCropPlan } = require('./utils/gemini');
+    
+    // Generate crop plan using Gemini AI (with fallback)
+    const aiResponse = await generateCropPlan(req.body);
+    
+    if (!aiResponse.success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate crop plan'
+      });
     }
-  });
+
+    res.status(200).json({
+      success: true,
+      message: 'Crop plan generated successfully',
+      data: {
+        plan: {
+          id: 'plan-' + Date.now(),
+          planText: aiResponse.planText,
+          soilType: req.body.soilType,
+          landSize: req.body.landSize,
+          irrigation: req.body.irrigation,
+          season: req.body.season,
+          preferredLanguage: req.body.preferredLanguage,
+          source: aiResponse.source,
+          createdAt: new Date().toISOString()
+        },
+        audioURL: null // TTS not implemented in simple server
+      }
+    });
+  } catch (error) {
+    console.error('Error generating crop plan:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
 });
 
 // 404 handler

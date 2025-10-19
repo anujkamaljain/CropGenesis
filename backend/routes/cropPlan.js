@@ -72,13 +72,22 @@ router.post('/generate', authenticateToken, validateCropPlan, async (req, res) =
       });
     }
 
+    // Normalize and cap plan text to avoid DB validation errors/timeouts
+    let planText = (aiResponse.planText || '').toString().trim();
+    const MAX_PLAN_CHARS = 10000;
+    if (planText.length > MAX_PLAN_CHARS) {
+      const note = '\n\n[Note: Output truncated to fit the size limit.]';
+      const budget = MAX_PLAN_CHARS - note.length;
+      planText = planText.slice(0, Math.max(0, budget)) + note;
+    }
+
     // Generate audio for the plan (placeholder implementation)
-    const audioURL = await generateTTS(aiResponse.planText, preferredLanguage);
+    const audioURL = await generateTTS(planText, preferredLanguage);
 
     // Save crop plan to database
     const cropPlan = new CropPlan({
       userId,
-      planText: aiResponse.planText,
+      planText,
       planAudioURL: audioURL,
       inputs: {
         soilType: inputs.soilType,

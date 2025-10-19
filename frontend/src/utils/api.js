@@ -4,7 +4,8 @@ import toast from 'react-hot-toast';
 // Create axios instance
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-  timeout: 10000, // 10 seconds timeout (reduced from 30)
+  // Increase timeout to accommodate AI generation latency
+  timeout: 60000, // 60 seconds
   headers: {
     'Content-Type': 'application/json',
   },
@@ -30,6 +31,10 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    if (error.code === 'ECONNABORTED') {
+      toast.error('Request timed out. The AI may still be processing, please try again shortly.');
+      return Promise.reject(error);
+    }
     const message = error.response?.data?.message || 'An error occurred';
     
     // Handle specific error cases
