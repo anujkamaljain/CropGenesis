@@ -126,7 +126,7 @@ const generateCropPlan = async (inputs) => {
 
     // Build complete prompt first
     let prompt = `
-You are an expert agricultural advisor helping a farmer in India. Generate a comprehensive crop plan based on the following inputs:
+You are an expert agricultural advisor helping a farmer in India. DO NOT use asterisks (*) anywhere in your response - use plain text formatting only. Generate a comprehensive crop plan based on the following inputs:
 
 Soil Type: ${soilType}
 Land Size: ${landSize} acres
@@ -150,6 +150,7 @@ Use these media files ONLY to support your final crop suggestion decision. Do no
     // Add the complete instructions
     prompt += `
 You are an expert agricultural advisor helping a farmer in India.
+DO NOT use asterisks (*) anywhere in your response - use plain text formatting only.
 CRITICAL INSTRUCTIONS - FOLLOW EXACTLY:
 
 RESPONSE FORMAT (NO EXCEPTIONS):
@@ -179,6 +180,7 @@ STRICT RULES:
 - Use simple language suitable for Indian farmers
 - Make each point detailed and comprehensive - provide specific information, quantities, dates, and practical advice
 - Include specific examples and actionable steps in each point
+- DO NOT use asterisks (*) anywhere in your response - use plain text formatting only
 - If image/video provided: Use it ONLY to support your final suggestion decision
 - If no image/video: Make final suggestion based on input parameters only
 - Aim for a comprehensive response that gives farmers all the information they need
