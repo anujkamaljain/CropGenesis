@@ -76,9 +76,9 @@ router.post('/generate', authenticateToken, validateCropPlan, async (req, res) =
     let planText = (aiResponse.planText || '').toString().trim();
     const MAX_PLAN_CHARS = 10000;
     if (planText.length > MAX_PLAN_CHARS) {
-      const note = '\n\n[Note: Output truncated to fit the size limit.]';
-      const budget = MAX_PLAN_CHARS - note.length;
-      planText = planText.slice(0, Math.max(0, budget)) + note;
+      const followUpSuggestion = '\n\n💡 Have more questions about this plan? Use the "Ask Follow-up Questions" section below to get detailed answers about any specific aspect of your crop plan.';
+      const budget = MAX_PLAN_CHARS - followUpSuggestion.length;
+      planText = planText.slice(0, Math.max(0, budget)) + followUpSuggestion;
     }
 
     // Generate audio for the plan (placeholder implementation)

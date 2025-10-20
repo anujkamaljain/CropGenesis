@@ -140,7 +140,9 @@ const CropPlanForm = () => {
     { value: 'gu', label: 'Gujarati' },
     { value: 'kn', label: 'Kannada' },
     { value: 'ml', label: 'Malayalam' },
-    { value: 'pa', label: 'Punjabi' }
+    { value: 'or', label: 'Odia' },
+    { value: 'pa', label: 'Punjabi' },
+    { value: 'as', label: 'Assamese' }
   ];
 
   return (

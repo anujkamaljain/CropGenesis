@@ -123,7 +123,7 @@ const generateCropPlan = async (inputs) => {
     const language = languageMap[preferredLanguage] || 'English';
 
     const prompt = `
-You are an expert agricultural advisor helping farmers in India. Generate a comprehensive crop plan based on the following inputs:
+You are an expert agricultural advisor helping a farmer in India. Generate a comprehensive crop plan based on the following inputs:
 
 Soil Type: ${soilType}
 Land Size: ${landSize} acres
@@ -146,8 +146,16 @@ Please provide a detailed crop plan in ${language} that includes:
 11. **Tips**: Additional farming tips and best practices for final suggested crop
 
 Make the response practical, easy to understand, and suitable for Indian farming conditions. Use simple language that farmers can easily follow.
-and remember this response because farmer may ask you a follow up question regarding other left crops you suggested or the suggested one.
-Keep the total response under 3000 words.
+
+IMPORTANT: Structure your response clearly with numbered sections and bullet points. This will help farmers ask specific follow-up questions about any part of the plan. Remember that farmers may ask detailed questions about:
+- Alternative crops you mentioned
+- Specific implementation steps
+- Problem-solving for their situation
+- Cost optimization
+- Seasonal variations
+- Pest and disease management details
+
+Keep the total response under 3000 words but make it comprehensive and well-organized.
 `;
 
     const result = await retryGeminiCall(() => 
@@ -222,21 +230,26 @@ const generateFollowUpResponse = async (planId, question, originalPlan, language
     const lang = languageMap[language] || 'English';
 
     const prompt = `
-You are an expert agricultural advisor. A farmer has a follow-up question about their crop plan.
+You are an expert agricultural advisor helping a farmer with a follow-up question about their crop plan. You have full context of their original plan and should provide detailed, contextual answers.
 
-Original Crop Plan:
+ORIGINAL CROP PLAN CONTEXT:
 ${originalPlan}
 
-Farmer's Question: ${question}
+FARMER'S FOLLOW-UP QUESTION: ${question}
 
-Please provide a detailed, helpful answer in ${lang}. Make sure to:
-1. Address the specific question directly
-2. Provide practical, actionable advice
-3. Reference the original plan when relevant
+Please provide a comprehensive, helpful answer in ${lang}. Make sure to:
+1. Address the specific question directly and thoroughly
+2. Reference relevant details from the original plan when applicable
+3. Provide practical, actionable advice specific to their situation
 4. Use simple language suitable for farmers
-5. Include specific recommendations if applicable
+5. Include specific recommendations, quantities, timings, or methods
+6. If the question is about alternative crops mentioned in the plan, provide detailed comparisons
+7. If asking about implementation details, give step-by-step guidance
+8. If asking about problems or concerns, provide solutions and preventive measures
 
-Keep the response concise but comprehensive (under 500 words).
+Remember: You have full context of their farm conditions (soil type, land size, irrigation, season) from the original plan. Use this context to give personalized advice.
+
+Keep the response detailed but well-structured (under 800 words).
 `;
 
     const result = await retryGeminiCall(() => 
@@ -245,7 +258,7 @@ Keep the response concise but comprehensive (under 500 words).
         contents: prompt,
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 500,
+          maxOutputTokens: 800,
           topP: 0.9,
           topK: 40
         }
