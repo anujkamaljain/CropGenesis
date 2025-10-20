@@ -1,8 +1,12 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+
+// Import models
+const CropPlan = require('./models/CropPlan');
 
 const app = express();
 
@@ -107,22 +111,42 @@ app.post('/api/cropplan/generate', async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    // Normalize and cap plan text to avoid DB validation errors/timeouts
+    let planText = (aiResponse.planText || '').toString().trim();
+    const MAX_PLAN_CHARS = 10000;
+    if (planText.length > MAX_PLAN_CHARS) {
+      const followUpSuggestion = '\n\n💡 Have more questions about this plan? Use the "Ask Follow-up Questions" section below to get detailed answers about any specific aspect of your crop plan.';
+      const budget = MAX_PLAN_CHARS - followUpSuggestion.length;
+      planText = planText.slice(0, Math.max(0, budget)) + followUpSuggestion;
+    }
+
+    // Create a mock user ID for simple server (in real app, this would come from authentication)
+    const mockUserId = new mongoose.Types.ObjectId();
+
+    // Save crop plan to database
+    const cropPlan = new CropPlan({
+      userId: mockUserId,
+      planText,
+      planAudioURL: null, // TTS not implemented in simple server
+      inputs: {
+        soilType: req.body.soilType,
+        landSize: req.body.landSize,
+        irrigation: req.body.irrigation,
+        season: req.body.season,
+        preferredLanguage: req.body.preferredLanguage || 'en',
+        additionalNotes: req.body.additionalNotes || ''
+      }
+    });
+
+    await cropPlan.save();
+
+    res.status(201).json({
       success: true,
       message: 'Crop plan generated successfully',
       data: {
-        plan: {
-          id: 'plan-' + Date.now(),
-          planText: aiResponse.planText,
-          soilType: req.body.soilType,
-          landSize: req.body.landSize,
-          irrigation: req.body.irrigation,
-          season: req.body.season,
-          preferredLanguage: req.body.preferredLanguage,
-          source: aiResponse.source,
-          createdAt: new Date().toISOString()
-        },
-        audioURL: null // TTS not implemented in simple server
+        plan: cropPlan,
+        audioURL: null, // TTS not implemented in simple server
+        source: aiResponse.source || 'unknown'
       }
     });
   } catch (error) {
@@ -130,6 +154,122 @@ app.post('/api/cropplan/generate', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error'
+    });
+  }
+});
+
+// Follow-up question route (simple implementation)
+app.post('/api/cropplan/followup', async (req, res) => {
+  try {
+    console.log('Follow-up question received:', req.body);
+    
+    const { planId, question } = req.body;
+    
+    // Basic validation
+    if (!planId || !question || question.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Plan ID and question are required'
+      });
+    }
+    
+    // Validate planId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(planId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid plan ID format'
+      });
+    }
+    
+    // Validate question length
+    if (question.trim().length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: 'Question must be 500 characters or less'
+      });
+    }
+    
+    // Find the crop plan in the database
+    const cropPlan = await CropPlan.findById(planId);
+    if (!cropPlan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Crop plan not found'
+      });
+    }
+    
+    const { generateFollowUpResponse } = require('./utils/gemini');
+    
+    // Generate follow-up response using Gemini AI with the actual plan context
+    const aiResponse = await generateFollowUpResponse(
+      planId,
+      question,
+      cropPlan.planText,
+      cropPlan.inputs.preferredLanguage || 'en'
+    );
+    
+    if (!aiResponse.success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate follow-up response'
+      });
+    }
+    
+    // Add follow-up question and answer to the crop plan document
+    await cropPlan.addFollowUp(question, aiResponse.answerText);
+    
+    res.json({
+      success: true,
+      message: 'Follow-up response generated successfully',
+      data: {
+        answer: aiResponse.answerText,
+        audioURL: null, // TTS not implemented in simple server
+        followUpCount: cropPlan.followUpQuestions.length
+      }
+    });
+    
+  } catch (error) {
+    console.error('Follow-up error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate follow-up response'
+    });
+  }
+});
+
+// Get specific crop plan with follow-up questions
+app.get('/api/cropplan/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate planId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid plan ID format'
+      });
+    }
+    
+    const cropPlan = await CropPlan.findById(id);
+    if (!cropPlan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Crop plan not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        plan: cropPlan
+      }
+    });
+    
+  } catch (error) {
+    console.error('Get crop plan error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get crop plan'
     });
   }
 });
@@ -142,14 +282,32 @@ app.use('*', (req, res) => {
   });
 });
 
+// Connect to MongoDB
+const connectDB = async () => {
+  try {
+    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/cropgenesis';
+    await mongoose.connect(mongoURI);
+    console.log('✅ MongoDB connected successfully');
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error.message);
+    process.exit(1);
+  }
+};
+
 // Start server
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`🚀 CropGenesis API server running on port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🌱 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`⚠️  Running in MOCK mode - no database required`);
-});
+const startServer = async () => {
+  await connectDB();
+  
+  app.listen(PORT, () => {
+    console.log(`🚀 CropGenesis API server running on port ${PORT}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/health`);
+    console.log(`🌱 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`💾 Database: MongoDB connected`);
+  });
+};
+
+startServer();
 
 module.exports = app;

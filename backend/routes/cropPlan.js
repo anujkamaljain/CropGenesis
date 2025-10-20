@@ -56,11 +56,13 @@ router.get('/status', authenticateToken, async (req, res) => {
  */
 router.post('/generate', authenticateToken, validateCropPlan, async (req, res) => {
   try {
-    const userId = req.user._id;
     const inputs = req.body;
     
+    // Get user ID from authenticated user
+    const userId = req.user._id;
+    
     // Use user's language preference if not provided in request
-    const preferredLanguage = inputs.preferredLanguage || req.user.language || 'en';
+    const preferredLanguage = inputs.preferredLanguage || 'en';
 
     // Generate crop plan using Gemini AI
     const aiResponse = await generateCropPlan({ ...inputs, preferredLanguage });
@@ -100,6 +102,8 @@ router.post('/generate', authenticateToken, validateCropPlan, async (req, res) =
     });
 
     await cropPlan.save();
+
+    console.log('Crop plan saved with ID:', cropPlan._id);
 
     res.status(201).json({
       success: true,
@@ -148,10 +152,11 @@ router.post('/generate', authenticateToken, validateCropPlan, async (req, res) =
 router.post('/followup', authenticateToken, validateFollowUp, async (req, res) => {
   try {
     const { planId, question } = req.body;
-    const userId = req.user._id;
-
-    // Find the crop plan
-    const cropPlan = await CropPlan.findOne({ _id: planId, userId });
+    
+    console.log('Follow-up request received:', { planId, question: question?.substring(0, 50) + '...' });
+    
+    // Find crop plan by ID and verify it belongs to the authenticated user
+    const cropPlan = await CropPlan.findOne({ _id: planId, userId: req.user._id });
     if (!cropPlan) {
       return res.status(404).json({
         success: false,

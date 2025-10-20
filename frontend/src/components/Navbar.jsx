@@ -9,7 +9,8 @@ import {
   LogOut, 
   Menu, 
   X,
-  ChevronDown
+  ChevronDown,
+  History as HistoryIcon
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -163,6 +164,16 @@ const Navbar = () => {
                         className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
                       >
                         <Link
+                          to="/history"
+                          className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+                          onClick={() => {
+                            setIsProfileOpen(false);
+                          }}
+                        >
+                          <HistoryIcon className="w-4 h-4" />
+                          <span>History</span>
+                        </Link>
+                        <Link
                           to="/profile"
                           className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
                           onClick={() => {
@@ -279,6 +290,14 @@ const Navbar = () => {
                   >
                     <Sprout className="w-5 h-5" />
                     <span className="font-medium">Get a Plan</span>
+                  </Link>
+                  <Link
+                    to="/history"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center space-x-3 px-3 py-2 rounded-lg text-white hover:text-blue-100 hover:bg-blue-500 transition-colors duration-200"
+                  >
+                    <HistoryIcon className="w-5 h-5" />
+                    <span className="font-medium">History</span>
                   </Link>
                   <Link
                     to="/profile"

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { 
@@ -10,18 +10,22 @@ import {
   Volume2,
   MessageCircle
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { cropPlanAPI } from '../utils/api';
 import { handleApiSuccess, handleApiError } from '../utils/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import AudioPlayer from '../components/AudioPlayer';
+import { useAuth } from '../context/AuthContext';
 
 const CropPlanForm = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState(null);
   const [followUpQuestion, setFollowUpQuestion] = useState('');
   const [isGeneratingFollowUp, setIsGeneratingFollowUp] = useState(false);
   const [followUpResponse, setFollowUpResponse] = useState(null);
+  const [followUpThread, setFollowUpThread] = useState([]);
   const [selectedImages, setSelectedImages] = useState([]);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [irrigationMethod, setIrrigationMethod] = useState('');
@@ -32,6 +36,18 @@ const CropPlanForm = () => {
     formState: { errors },
     reset
   } = useForm();
+
+  // Check authentication and redirect if not logged in
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate('/login', { 
+        state: { 
+          message: 'Please login to create crop plans',
+          redirectTo: '/crop-plan'
+        }
+      });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   const onSubmit = async (data) => {
     console.log('Form submitted with data:', data);
@@ -63,14 +79,25 @@ const CropPlanForm = () => {
 
       const response = await cropPlanAPI.generate(requestData);
       
-      if (response.data.success) {
-        setGeneratedPlan(response.data.data);
-        handleApiSuccess('Crop plan generated successfully!');
-        reset(); // Clear form
-        setSelectedImages([]);
-        setSelectedVideo(null);
-        setIrrigationMethod('');
-      }
+       if (response.data.success) {
+         setGeneratedPlan(response.data.data);
+         
+         // Load existing follow-up questions if any
+         if (response.data.data.plan.followUpQuestions && response.data.data.plan.followUpQuestions.length > 0) {
+           const existingThread = response.data.data.plan.followUpQuestions.map(qa => ({
+             question: qa.question,
+             answer: qa.answer,
+             timestamp: qa.timestamp
+           }));
+           setFollowUpThread(existingThread);
+         }
+         
+         handleApiSuccess('Crop plan generated successfully!');
+         reset(); // Clear form
+         setSelectedImages([]);
+         setSelectedVideo(null);
+         setIrrigationMethod('');
+       }
     } catch (error) {
       handleApiError(error);
     } finally {
@@ -85,16 +112,26 @@ const CropPlanForm = () => {
       setIsGeneratingFollowUp(true);
       setFollowUpResponse(null);
 
+      console.log('Generated plan object:', generatedPlan);
+      console.log('Plan ID being sent:', generatedPlan.plan.id);
+
       const response = await cropPlanAPI.followUp({
-        planId: generatedPlan.plan._id,
+        planId: generatedPlan.plan.id,
         question: followUpQuestion
       });
 
-      if (response.data.success) {
-        setFollowUpResponse(response.data.data);
-        setFollowUpQuestion('');
-        handleApiSuccess('Follow-up response generated!');
-      }
+       if (response.data.success) {
+         const newQnA = {
+           question: followUpQuestion,
+           answer: response.data.data.answer,
+           timestamp: new Date().toISOString()
+         };
+         
+         setFollowUpThread(prev => [...prev, newQnA]);
+         setFollowUpResponse(response.data.data);
+         setFollowUpQuestion('');
+         handleApiSuccess('Follow-up response generated!');
+       }
     } catch (error) {
       handleApiError(error);
     } finally {
@@ -120,15 +157,16 @@ const CropPlanForm = () => {
     setSelectedVideo(null);
   };
 
-  const handleBackToForm = () => {
-    setGeneratedPlan(null);
-    setFollowUpQuestion('');
-    setFollowUpResponse(null);
-    setSelectedImages([]);
-    setSelectedVideo(null);
-    setIrrigationMethod('');
-    reset();
-  };
+   const handleBackToForm = () => {
+     setGeneratedPlan(null);
+     setFollowUpQuestion('');
+     setFollowUpResponse(null);
+     setFollowUpThread([]);
+     setSelectedImages([]);
+     setSelectedVideo(null);
+     setIrrigationMethod('');
+     reset();
+   };
 
   const languages = [
     { value: 'en', label: 'English' },
@@ -144,6 +182,20 @@ const CropPlanForm = () => {
     { value: 'pa', label: 'Punjabi' },
     { value: 'as', label: 'Assamese' }
   ];
+
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -544,21 +596,51 @@ const CropPlanForm = () => {
                     </button>
                   </div>
 
-                  {followUpResponse && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center mb-2">
-                    <MessageCircle className="w-5 h-5 text-blue-600 mr-2" />
-                    <h4 className="font-medium text-gray-900">Response</h4>
-                      </div>
-                  <p className="text-gray-700">{followUpResponse.response}</p>
-                      
-                      {followUpResponse.audioURL && (
-                    <div className="mt-4">
-                        <AudioPlayer audioURL={followUpResponse.audioURL} />
-                    </div>
-                  )}
-                </div>
-              )}
+                   {/* Follow-up Thread */}
+                   {followUpThread.length > 0 && (
+                     <div className="mt-6 space-y-4">
+                       <h4 className="font-medium text-gray-900 flex items-center">
+                         <MessageCircle className="w-5 h-5 text-blue-600 mr-2" />
+                         Conversation Thread ({followUpThread.length} {followUpThread.length === 1 ? 'question' : 'questions'})
+                       </h4>
+                       
+                       {followUpThread.map((item, index) => (
+                         <div key={index} className="space-y-3">
+                           {/* Question */}
+                           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                             <div className="flex items-start">
+                               <div className="flex-shrink-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                 Q
+                               </div>
+                               <div className="ml-3 flex-1">
+                                 <p className="text-sm font-medium text-blue-900 mb-1">Your Question</p>
+                                 <p className="text-gray-700">{item.question}</p>
+                                 <p className="text-xs text-gray-500 mt-2">
+                                   {new Date(item.timestamp).toLocaleString()}
+                                 </p>
+                               </div>
+                             </div>
+                           </div>
+                           
+                           {/* Answer */}
+                           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                             <div className="flex items-start">
+                               <div className="flex-shrink-0 w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                 A
+                               </div>
+                               <div className="ml-3 flex-1">
+                                 <p className="text-sm font-medium text-green-900 mb-1">AI Response</p>
+                                 <div className="text-gray-700 whitespace-pre-wrap">{item.answer}</div>
+                                 <p className="text-xs text-gray-500 mt-2">
+                                   {new Date(item.timestamp).toLocaleString()}
+                                 </p>
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                   )}
               </div>
           </motion.div>
         )}
