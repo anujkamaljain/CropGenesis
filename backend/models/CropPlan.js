@@ -30,12 +30,14 @@ const cropPlanSchema = new mongoose.Schema({
     irrigation: {
       type: String,
       required: [true, 'Irrigation type is required'],
-      enum: ['drip', 'sprinkler', 'flood', 'manual', 'rainfed', 'mixed']
+      minlength: [2, 'Irrigation method must be at least 2 characters'],
+      maxlength: [50, 'Irrigation method cannot exceed 50 characters'],
+      trim: true
     },
     season: {
       type: String,
       required: [true, 'Season is required'],
-      enum: ['kharif', 'rabi', 'zaid', 'year-round']
+      enum: ['kharif', 'rabi', 'zaid', 'spring', 'summer', 'monsoon', 'autumn', 'winter', 'year-round']
     },
     preferredLanguage: {
       type: String,

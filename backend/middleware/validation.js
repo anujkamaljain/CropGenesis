@@ -69,10 +69,11 @@ const validateCropPlan = [
     .isFloat({ min: 0.1, max: 1000 })
     .withMessage('Land size must be between 0.1 and 1000 acres'),
   body('irrigation')
-    .isIn(['drip', 'sprinkler', 'flood', 'manual', 'rainfed', 'mixed'])
-    .withMessage('Invalid irrigation type'),
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Irrigation method must be between 2 and 50 characters'),
   body('season')
-    .isIn(['kharif', 'rabi', 'zaid', 'year-round'])
+    .isIn(['kharif', 'rabi', 'zaid', 'spring', 'summer', 'monsoon', 'autumn', 'winter', 'year-round'])
     .withMessage('Invalid season'),
   body('preferredLanguage')
     .optional()
