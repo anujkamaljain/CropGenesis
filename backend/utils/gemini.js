@@ -283,7 +283,7 @@ const generateFollowUpResponse = async (planId, question, originalPlan, language
     const lang = languageMap[language] || 'English';
 
     const prompt = `
-You are an expert agricultural advisor helping a farmer with a follow-up question about their crop plan. You have full context of their original plan and should provide detailed, contextual answers.
+You are an expert agricultural advisor helping a farmer with a follow-up question about their crop plan. You have full context of their original plan and should provide detailed, contextual answers. DO NOT use asterisks (*) anywhere in your response - use plain text formatting only.
 
 ORIGINAL CROP PLAN CONTEXT:
 ${originalPlan}
