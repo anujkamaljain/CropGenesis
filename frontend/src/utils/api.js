@@ -69,7 +69,18 @@ export const authAPI = {
 };
 
 export const cropPlanAPI = {
-  generate: (planData) => api.post('/cropplan/generate', planData),
+  generate: (planData) => {
+    // Check if planData is FormData (for file uploads)
+    if (planData instanceof FormData) {
+      return api.post('/cropplan/generate', planData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    }
+    // Regular JSON data
+    return api.post('/cropplan/generate', planData);
+  },
   followUp: (followUpData) => api.post('/cropplan/followup', followUpData),
   getPlan: (id) => api.get(`/cropplan/${id}`),
   getPlans: (params) => api.get('/cropplan', { params }),

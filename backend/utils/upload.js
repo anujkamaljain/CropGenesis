@@ -45,7 +45,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 5 * 1024 * 1024, // 5MB limit
     files: 1 // Only one file at a time
   }
 });
@@ -60,7 +60,7 @@ const handleUpload = (req, res, next) => {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({
           success: false,
-          message: 'File too large. Maximum size is 50MB.'
+          message: 'File too large. Maximum size is 5MB.'
         });
       }
       if (err.code === 'LIMIT_UNEXPECTED_FILE') {
@@ -141,9 +141,124 @@ const getFileInfo = (file) => {
   };
 };
 
+// Middleware for crop plan file uploads (1 image + 1 video max)
+const uploadCropPlanFiles = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit per file
+    files: 2 // Maximum 2 files (1 image + 1 video)
+  }
+}).fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'video', maxCount: 1 }
+]);
+
+// Middleware wrapper for crop plan file uploads
+const handleCropPlanUpload = (req, res, next) => {
+  uploadCropPlanFiles(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          message: 'File too large. Maximum size is 5MB per file.'
+        });
+      }
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({
+          success: false,
+          message: 'Too many files. Maximum 1 image and 1 video allowed.'
+        });
+      }
+      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({
+          success: false,
+          message: 'Unexpected file field. Only "image" and "video" fields are allowed.'
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: 'File upload error: ' + err.message
+      });
+    } else if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
+    next();
+  });
+};
+
+// Validate crop plan uploaded files
+const validateCropPlanFiles = (req, res, next) => {
+  const files = req.files;
+  
+  // Check if image is provided and valid
+  if (files.image && files.image[0]) {
+    const imageFile = files.image[0];
+    const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    
+    if (!allowedImageTypes.includes(imageFile.mimetype)) {
+      // Clean up uploaded files
+      if (files.video && files.video[0]) {
+        cleanupFile(files.video[0].path);
+      }
+      cleanupFile(imageFile.path);
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid image type. Only JPEG and PNG images are allowed.'
+      });
+    }
+  }
+  
+  // Check if video is provided and valid
+  if (files.video && files.video[0]) {
+    const videoFile = files.video[0];
+    const allowedVideoTypes = ['video/mp4', 'video/avi', 'video/mov'];
+    
+    if (!allowedVideoTypes.includes(videoFile.mimetype)) {
+      // Clean up uploaded files
+      if (files.image && files.image[0]) {
+        cleanupFile(files.image[0].path);
+      }
+      cleanupFile(videoFile.path);
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid video type. Only MP4, AVI, and MOV videos are allowed.'
+      });
+    }
+  }
+  
+  next();
+};
+
+// Get crop plan file info
+const getCropPlanFileInfo = (files) => {
+  const fileInfo = {
+    image: null,
+    video: null
+  };
+  
+  if (files.image && files.image[0]) {
+    fileInfo.image = getFileInfo(files.image[0]);
+  }
+  
+  if (files.video && files.video[0]) {
+    fileInfo.video = getFileInfo(files.video[0]);
+  }
+  
+  return fileInfo;
+};
+
 module.exports = {
   handleUpload,
   validateFile,
   cleanupFile,
-  getFileInfo
+  getFileInfo,
+  handleCropPlanUpload,
+  validateCropPlanFiles,
+  getCropPlanFileInfo
 };

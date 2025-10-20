@@ -64,10 +64,14 @@ const cropPlanSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
-  tags: [{
+  imageURL: {
     type: String,
-    trim: true
-  }]
+    default: null
+  },
+  videoURL: {
+    type: String,
+    default: null
+  }
 }, {
   timestamps: true,
   toJSON: {
@@ -84,7 +88,6 @@ const cropPlanSchema = new mongoose.Schema({
 cropPlanSchema.index({ userId: 1, createdAt: -1 });
 cropPlanSchema.index({ 'inputs.season': 1 });
 cropPlanSchema.index({ 'inputs.soilType': 1 });
-cropPlanSchema.index({ tags: 1 });
 
 // Virtual for plan summary
 cropPlanSchema.virtual('summary').get(function() {

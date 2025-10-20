@@ -26,7 +26,7 @@ const CropPlanForm = () => {
   const [isGeneratingFollowUp, setIsGeneratingFollowUp] = useState(false);
   const [followUpResponse, setFollowUpResponse] = useState(null);
   const [followUpThread, setFollowUpThread] = useState([]);
-  const [selectedImages, setSelectedImages] = useState([]);
+  const [selectedImage, setSelectedImage] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [irrigationMethod, setIrrigationMethod] = useState('');
 
@@ -65,19 +65,37 @@ const CropPlanForm = () => {
       setGeneratedPlan(null);
       setFollowUpResponse(null);
 
-      // Prepare data according to backend expectations
-      const requestData = {
+      // Prepare FormData for file uploads
+      const formData = new FormData();
+      
+      // Add form fields
+      formData.append('soilType', data.soilType);
+      formData.append('landSize', parseFloat(data.landSize) || 0);
+      formData.append('irrigation', data.irrigation === 'other' ? data.customIrrigation : data.irrigation);
+      formData.append('season', data.season);
+      formData.append('preferredLanguage', data.language || 'en');
+      formData.append('additionalNotes', data.description || '');
+      
+      // Add files if selected
+      if (selectedImage) {
+        formData.append('image', selectedImage);
+      }
+      if (selectedVideo) {
+        formData.append('video', selectedVideo);
+      }
+
+      console.log('Sending form data with files:', {
         soilType: data.soilType,
         landSize: parseFloat(data.landSize) || 0,
         irrigation: data.irrigation === 'other' ? data.customIrrigation : data.irrigation,
         season: data.season,
         preferredLanguage: data.language || 'en',
-        additionalNotes: data.description || ''
-      };
+        additionalNotes: data.description || '',
+        hasImage: !!selectedImage,
+        hasVideo: !!selectedVideo
+      });
 
-      console.log('Sending data to API:', requestData);
-
-      const response = await cropPlanAPI.generate(requestData);
+      const response = await cropPlanAPI.generate(formData);
       
        if (response.data.success) {
          setGeneratedPlan(response.data.data);
@@ -94,7 +112,7 @@ const CropPlanForm = () => {
          
          handleApiSuccess('Crop plan generated successfully!');
          reset(); // Clear form
-         setSelectedImages([]);
+         setSelectedImage(null);
          setSelectedVideo(null);
          setIrrigationMethod('');
        }
@@ -140,17 +158,21 @@ const CropPlanForm = () => {
   };
 
   const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
-    setSelectedImages(prev => [...prev, ...files]);
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+    }
   };
 
   const handleVideoUpload = (e) => {
     const file = e.target.files[0];
-    setSelectedVideo(file);
+    if (file) {
+      setSelectedVideo(file);
+    }
   };
 
-  const removeImage = (index) => {
-    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  const removeImage = () => {
+    setSelectedImage(null);
   };
 
   const removeVideo = () => {
@@ -162,7 +184,7 @@ const CropPlanForm = () => {
      setFollowUpQuestion('');
      setFollowUpResponse(null);
      setFollowUpThread([]);
-     setSelectedImages([]);
+     setSelectedImage(null);
      setSelectedVideo(null);
      setIrrigationMethod('');
      reset();
@@ -411,42 +433,40 @@ const CropPlanForm = () => {
               />
             </div>
 
-            {/* Upload Images */}
+            {/* Upload Image */}
                 <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Images (optional)
+                Upload Farm Image (optional)
               </label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
                 <input
                   type="file"
-                  id="images"
-                  multiple
+                  id="image"
                   accept="image/*"
                   onChange={handleImageUpload}
                   className="hidden"
                 />
                 <label
-                  htmlFor="images"
+                  htmlFor="image"
                   className="cursor-pointer flex flex-col items-center"
                 >
                   <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                  <span className="text-gray-600">Click to upload images</span>
+                  <span className="text-gray-600">Click to upload farm image</span>
+                  <span className="text-xs text-gray-500 mt-1">JPEG, PNG (Max 5MB)</span>
                   </label>
               </div>
-              {selectedImages.length > 0 && (
+              {selectedImage && (
                 <div className="mt-2">
-                  {selectedImages.map((image, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-100 p-2 rounded mb-1">
-                      <span className="text-sm text-gray-700">{image.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
+                  <div className="flex items-center justify-between bg-gray-100 p-2 rounded">
+                    <span className="text-sm text-gray-700">{selectedImage.name}</span>
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
                   )}
                 </div>
@@ -454,7 +474,7 @@ const CropPlanForm = () => {
             {/* Upload Video */}
                 <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Video (optional)
+                Upload Farm Video (optional)
                   </label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
                 <input
@@ -469,7 +489,8 @@ const CropPlanForm = () => {
                   className="cursor-pointer flex flex-col items-center"
                 >
                   <Camera className="w-8 h-8 text-gray-400 mb-2" />
-                  <span className="text-gray-600">Click to upload video</span>
+                  <span className="text-gray-600">Click to upload farm video</span>
+                  <span className="text-xs text-gray-500 mt-1">MP4, AVI, MOV (Max 5MB)</span>
                 </label>
               </div>
               {selectedVideo && (

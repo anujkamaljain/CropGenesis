@@ -5,6 +5,7 @@ const CropPlan = require('../models/CropPlan');
 const { authenticateToken } = require('../middleware/auth');
 const { validateCropPlan, validateFollowUp } = require('../middleware/validation');
 const { generateCropPlan, generateFollowUpResponse, generateTTS } = require('../utils/gemini');
+const { handleCropPlanUpload, validateCropPlanFiles, cleanupFile, getCropPlanFileInfo } = require('../utils/upload');
 
 /**
  * @route   GET /api/cropplan/status
@@ -54,9 +55,10 @@ router.get('/status', authenticateToken, async (req, res) => {
  * @desc    Generate a new crop plan
  * @access  Private
  */
-router.post('/generate', authenticateToken, validateCropPlan, async (req, res) => {
+router.post('/generate', authenticateToken, handleCropPlanUpload, validateCropPlanFiles, validateCropPlan, async (req, res) => {
   try {
     const inputs = req.body;
+    const files = req.files;
     
     // Get user ID from authenticated user
     const userId = req.user._id;
@@ -64,10 +66,28 @@ router.post('/generate', authenticateToken, validateCropPlan, async (req, res) =
     // Use user's language preference if not provided in request
     const preferredLanguage = inputs.preferredLanguage || 'en';
 
-    // Generate crop plan using Gemini AI
-    const aiResponse = await generateCropPlan({ ...inputs, preferredLanguage });
+    // Get file information if files were uploaded
+    const fileInfo = getCropPlanFileInfo(files);
+    let imageURL = null;
+    let videoURL = null;
+
+    // Generate crop plan using Gemini AI with media files
+    const aiResponse = await generateCropPlan({ 
+      ...inputs, 
+      preferredLanguage,
+      imagePath: fileInfo.image ? fileInfo.image.path : null,
+      videoPath: fileInfo.video ? fileInfo.video.path : null
+    });
     
     if (!aiResponse.success) {
+      // Clean up uploaded files if AI generation fails
+      if (fileInfo.image) {
+        cleanupFile(fileInfo.image.path);
+      }
+      if (fileInfo.video) {
+        cleanupFile(fileInfo.video.path);
+      }
+      
       return res.status(500).json({
         success: false,
         message: 'Failed to generate crop plan'
@@ -86,11 +106,21 @@ router.post('/generate', authenticateToken, validateCropPlan, async (req, res) =
     // Generate audio for the plan (placeholder implementation)
     const audioURL = await generateTTS(planText, preferredLanguage);
 
+    // Set file URLs if files were uploaded
+    if (fileInfo.image) {
+      imageURL = `/uploads/${fileInfo.image.filename}`;
+    }
+    if (fileInfo.video) {
+      videoURL = `/uploads/${fileInfo.video.filename}`;
+    }
+
     // Save crop plan to database
     const cropPlan = new CropPlan({
       userId,
       planText,
       planAudioURL: audioURL,
+      imageURL,
+      videoURL,
       inputs: {
         soilType: inputs.soilType,
         landSize: inputs.landSize,

@@ -101,7 +101,9 @@ const generateCropPlan = async (inputs) => {
       irrigation,
       season,
       preferredLanguage,
-      additionalNotes
+      additionalNotes,
+      imagePath,
+      videoPath
     } = inputs;
 
     // Language mapping for prompts
@@ -122,7 +124,8 @@ const generateCropPlan = async (inputs) => {
 
     const language = languageMap[preferredLanguage] || 'English';
 
-    const prompt = `
+    // Build complete prompt first
+    let prompt = `
 You are an expert agricultural advisor helping a farmer in India. Generate a comprehensive crop plan based on the following inputs:
 
 Soil Type: ${soilType}
@@ -131,37 +134,85 @@ Irrigation: ${irrigation}
 Season: ${season}
 Additional Notes: ${additionalNotes || 'None'}
 
-Please provide a detailed crop plan in ${language} that includes:
+Start your response with "Namaste Kisaan Bhai" in ${language}, then provide the crop plan.`;
 
-1. **Recommended Crops**: Suggest 3-5 suitable crops for the given conditions
-2. **Final Suggestion** : Out of above suggested 3-5 crops, suggest the best crop according to you which will be the most profitable and suitable for the given conditions, but with a warning that the crop is suggested by AI which may or may not be 100% accurate.
-3. **Planting Schedule**: When to plant the final suggested crop
-4. **Soil Preparation**: How to prepare the soil for final suggested crop
-5. **Fertilizer Requirements**: Organic and chemical fertilizer recommendations for final suggested crop
-6. **Irrigation Schedule**: Watering frequency and methods for final suggested crop
-7. **Pest Management**: Common pests and organic control methods for final suggested crop
-8. **Harvest Timeline**: Expected harvest periods for final suggested crop
-9. **Expected Yield**: Approximate yield per acre for final suggested crop
-10. **Cost Estimation**: Rough cost breakdown for inputs for final suggested crop
-11. **Tips**: Additional farming tips and best practices for final suggested crop
+    // Add media analysis instructions if files are provided
+    if (imagePath || videoPath) {
+      prompt += `
 
-Make the response practical, easy to understand, and suitable for Indian farming conditions. Use simple language that farmers can easily follow.
+MEDIA FILES PROVIDED:
+${imagePath ? '- An image of their farm/land' : ''}
+${videoPath ? '- A video of their farm/land' : ''}
 
-IMPORTANT: Structure your response clearly with numbered sections and bullet points. This will help farmers ask specific follow-up questions about any part of the plan. Remember that farmers may ask detailed questions about:
-- Alternative crops you mentioned
-- Specific implementation steps
-- Problem-solving for their situation
-- Cost optimization
-- Seasonal variations
-- Pest and disease management details
+Use these media files ONLY to support your final crop suggestion decision. Do not create detailed analysis sections.`;
+    }
 
-Keep the total response under 3000 words but make it comprehensive and well-organized.
+    // Add the complete instructions
+    prompt += `
+You are an expert agricultural advisor helping a farmer in India.
+CRITICAL INSTRUCTIONS - FOLLOW EXACTLY:
+
+RESPONSE FORMAT (NO EXCEPTIONS):
+1. Start with "Namaste Kisaan Bhai" in ${language}
+${imagePath || videoPath ? '2. Add 2-3 lines starting with "The visual provided by you suggests that..." (in ' + language + ')\n3. Then provide these 11 detailed numbered points (in ' + language + '):' : '2. Then provide these 11 detailed numbered points (in ' + language + '):'}
+
+1. **Recommended Crops**: Suggest 3-5 suitable crops for the given conditions with brief reasons why each is suitable
+2. **Final Suggestion**: Out of above suggested 3-5 crops, suggest the best crop according to you which will be the most profitable and suitable for the given conditions, but with a warning that the crop is suggested by AI which may or may not be 100% accurate. Provide detailed reasoning for your choice. If image/video was provided and contributed to this decision, mention how the visual information influenced your final crop selection.
+3. **Planting Schedule**: When to plant the final suggested crop with specific dates and weather considerations
+4. **Soil Preparation**: How to prepare the soil for final suggested crop with detailed steps and timing
+5. **Fertilizer Requirements**: Organic and chemical fertilizer recommendations for final suggested crop with specific quantities and application methods
+6. **Irrigation Schedule**: Watering frequency and methods for final suggested crop with detailed schedule and water requirements
+7. **Pest Management**: Common pests and organic control methods for final suggested crop with specific prevention and treatment strategies
+8. **Harvest Timeline**: Expected harvest periods for final suggested crop with signs to look for and harvesting techniques
+9. **Expected Yield**: Approximate yield per acre for final suggested crop with factors that can affect yield
+10. **Cost Estimation**: Rough cost breakdown for inputs for final suggested crop including seeds, fertilizers, irrigation, and labor costs
+11. **Tips**: Additional farming tips and best practices for final suggested crop with seasonal considerations and troubleshooting advice
+
+End your response with: "If you have any follow-up questions, please ask below. Happy harvest!" in ${language}
+
+STRICT RULES:
+- DO NOT create tables, charts, or complex formatting
+- DO NOT add executive summaries, agro-climatic zones, or detailed analysis sections
+- DO NOT create land allocation strategies or crop grouping rationales
+- ONLY provide the greeting, media analysis (if applicable), and 11 numbered points above
+- RESPOND ENTIRELY IN ${language} - This is the user's preferred language
+- Use simple language suitable for Indian farmers
+- Make each point detailed and comprehensive - provide specific information, quantities, dates, and practical advice
+- Include specific examples and actionable steps in each point
+- If image/video provided: Use it ONLY to support your final suggestion decision
+- If no image/video: Make final suggestion based on input parameters only
+- Aim for a comprehensive response that gives farmers all the information they need
 `;
+
+    // Build content array for multimodal input
+    const contents = [];
+    
+    // Add the complete prompt to contents
+    contents.push({
+      text: prompt
+    });
+
+    // Add media files if provided
+    if (imagePath && fs.existsSync(imagePath)) {
+      const imageData = fs.readFileSync(imagePath);
+      const imageBase64 = imageData.toString('base64');
+      const mimeType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      
+      contents.push({
+        inlineData: {
+          mimeType: mimeType,
+          data: imageBase64
+        }
+      });
+    } else if (videoPath && fs.existsSync(videoPath)) {
+      // Note: Gemini 2.5 Flash doesn't support video directly, so we'll mention it in the prompt
+      // The prompt already includes instructions for video files
+    }
 
     const result = await retryGeminiCall(() => 
       genAI.models.generateContent({
         model: "gemini-2.5-flash-lite",
-        contents: prompt,
+        contents: contents,
         generationConfig: {
           temperature: 0.6,
           maxOutputTokens: 1200, // keep under DB limit comfortably
