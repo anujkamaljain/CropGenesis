@@ -300,8 +300,8 @@ Please provide a comprehensive, helpful answer in ${lang}. Make sure to:
 7. If asking about implementation details, give step-by-step guidance
 8. If asking about problems or concerns, provide solutions and preventive measures
 
-Remember: You have full context of their farm conditions (soil type, land size, irrigation, season) from the original plan. Use this context to give personalized advice.
-
+Remember: You have full context of their farm conditions (soil type, land size, irrigation, season) from the original plan. Use this context to give personalized advice and DO NOT use asterisks (*) anywhere in your response - use plain text formatting only.
+DO NOT use asterisks (*) anywhere in your response - use plain text formatting only.
 Keep the response detailed but well-structured (under 800 words).
 `;
 
