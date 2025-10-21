@@ -35,6 +35,12 @@ router.post('/upload', authenticateToken, handleUpload, validateFile, async (req
     // Generate audio for the diagnosis
     const audioURL = await generateTTS(aiResponse.diagnosisText, userLanguage);
 
+    // Truncate text fields to fit database limits
+    const truncateText = (text, maxLength) => {
+      if (!text) return text;
+      return text.length > maxLength ? text.substring(0, maxLength - 3) + '...' : text;
+    };
+
     // Save diagnosis to database
     const diagnosis = new Diagnosis({
       userId,
@@ -43,14 +49,16 @@ router.post('/upload', authenticateToken, handleUpload, validateFile, async (req
       fileType: fileInfo.type,
       fileName: fileInfo.originalName,
       fileSize: fileInfo.size,
-      diagnosisText: aiResponse.diagnosisText,
-      remedy: aiResponse.diagnosisText, // In a real implementation, you'd extract remedy separately
+      diagnosisText: truncateText(aiResponse.diagnosisText, 15000),
+      remedy: truncateText(aiResponse.diagnosisText, 15000), // The full diagnosis text includes treatment information
       audioURL: audioURL,
       confidence: aiResponse.confidence,
-      diseaseName: aiResponse.diseaseName,
+      diseaseName: truncateText(aiResponse.diseaseName, 500),
       severity: aiResponse.severity,
       affectedArea: aiResponse.affectedArea,
-      treatmentType: aiResponse.treatmentType || 'organic'
+      treatmentType: aiResponse.treatmentType || 'organic',
+      estimatedCost: aiResponse.estimatedCost,
+      estimatedTime: aiResponse.estimatedTime
     });
 
     await diagnosis.save();
@@ -230,6 +238,79 @@ router.get('/stats/summary', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to get diagnosis statistics'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/diagnosis/followup
+ * @desc    Generate follow-up response for diagnosis questions
+ * @access  Private
+ */
+router.post('/followup', authenticateToken, async (req, res) => {
+  try {
+    const { diagnosisId, question } = req.body;
+    const userId = req.user._id;
+    const userLanguage = req.user.language || 'en';
+
+    if (!diagnosisId || !question) {
+      return res.status(400).json({
+        success: false,
+        message: 'Diagnosis ID and question are required'
+      });
+    }
+
+    // Get the original diagnosis
+    const diagnosis = await Diagnosis.findOne({ _id: diagnosisId, userId });
+    if (!diagnosis) {
+      return res.status(404).json({
+        success: false,
+        message: 'Diagnosis not found'
+      });
+    }
+
+    // Generate follow-up response using Gemini AI
+    const { generateFollowUpResponse } = require('../utils/gemini');
+    const aiResponse = await generateFollowUpResponse(
+      diagnosisId,
+      question,
+      diagnosis.diagnosisText,
+      userLanguage
+    );
+
+    if (!aiResponse.success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate follow-up response'
+      });
+    }
+
+    // Add follow-up question to the diagnosis
+    if (!diagnosis.followUpQuestions) {
+      diagnosis.followUpQuestions = [];
+    }
+
+    diagnosis.followUpQuestions.push({
+      question: question,
+      answer: aiResponse.answerText,
+      timestamp: new Date()
+    });
+
+    await diagnosis.save();
+
+    res.json({
+      success: true,
+      data: {
+        answer: aiResponse.answerText,
+        language: userLanguage
+      }
+    });
+
+  } catch (error) {
+    console.error('Follow-up diagnosis error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate follow-up response'
     });
   }
 });

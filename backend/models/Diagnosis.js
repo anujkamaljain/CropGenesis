@@ -30,12 +30,12 @@ const diagnosisSchema = new mongoose.Schema({
   diagnosisText: {
     type: String,
     required: [true, 'Diagnosis text is required'],
-    maxlength: [5000, 'Diagnosis text cannot exceed 5000 characters']
+    maxlength: [15000, 'Diagnosis text cannot exceed 15000 characters']
   },
   remedy: {
     type: String,
     required: [true, 'Remedy is required'],
-    maxlength: [5000, 'Remedy text cannot exceed 5000 characters']
+    maxlength: [15000, 'Remedy text cannot exceed 15000 characters']
   },
   audioURL: {
     type: String,
@@ -50,7 +50,7 @@ const diagnosisSchema = new mongoose.Schema({
   diseaseName: {
     type: String,
     trim: true,
-    maxlength: [200, 'Disease name cannot exceed 200 characters']
+    maxlength: [500, 'Disease name cannot exceed 500 characters']
   },
   severity: {
     type: String,
@@ -79,6 +79,22 @@ const diagnosisSchema = new mongoose.Schema({
   tags: [{
     type: String,
     trim: true
+  }],
+  followUpQuestions: [{
+    question: {
+      type: String,
+      required: true,
+      maxlength: [1000, 'Question cannot exceed 1000 characters']
+    },
+    answer: {
+      type: String,
+      required: true,
+      maxlength: [2000, 'Answer cannot exceed 2000 characters']
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
   }]
 }, {
   timestamps: true,

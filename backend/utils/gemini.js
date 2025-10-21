@@ -371,27 +371,40 @@ const analyzeDisease = async (filePath, fileType, language) => {
     const base64Data = fileData.toString('base64');
 
     const prompt = `
-You are an expert plant pathologist. Analyze this ${fileType} of a crop and provide a comprehensive disease diagnosis.
+You are an expert plant pathologist helping a farmer in India. Analyze this ${fileType} and provide a concise disease diagnosis.
 
-Please provide your analysis in ${lang} with the following information:
+Start with "Namaste Kisaan Bhai" in ${lang}, then provide:
 
-1. **Disease Identification**: Name of the disease (if identifiable)
-2. **Confidence Level**: Your confidence in the diagnosis (0-100%)
-3. **Symptoms**: Detailed description of visible symptoms
-4. **Affected Area**: Which part of the plant is affected (leaves, stems, roots, fruits, etc.)
-5. **Severity**: Rate the severity (low, medium, high, critical)
-6. **Cause**: What causes this disease
-7. **Treatment Options**: 
+1. **Disease Identification**: Disease name and confidence level (0-100%)
+
+2. **Symptoms**: Brief description of visible symptoms
+
+3. **Affected Parts**: Which plant parts are affected (leaves, stems, roots, fruits, flowers, whole-plant)
+
+4. **Severity**: Rate as low, medium, high, or critical
+
+5. **Root Cause**: What causes this disease
+
+6. **Treatment Plan**: 
    - Organic remedies (preferred)
-   - Chemical treatments (if necessary)
+   - Chemical treatments (if needed)
    - Cultural practices
-8. **Prevention**: How to prevent this disease in the future
-9. **Timeline**: How long treatment might take
-10. **Cost Estimation**: Rough cost of treatment per acre
 
-Make the response practical and suitable for Indian farming conditions. Use simple language that farmers can understand.
+7. **Cost Estimation**: Cost per acre in ₹ (include materials, labor, equipment)
 
-If the image is unclear or you cannot identify a specific disease, please mention this and provide general plant health advice.
+8. **Timeline**: How long treatment takes and when to expect results
+
+9. **Prevention**: How to prevent this disease in future
+
+10. **Additional Tips**: When to seek help, emergency measures
+
+Keep each point concise but informative. Use simple language for Indian farmers. End with: "If you have questions, ask below. Wishing you healthy crops!" in ${lang}
+
+STRICT RULES:
+- NO asterisks (*) - use plain text only
+- RESPOND IN ${lang}
+- Keep response under 2000 characters total
+- Focus on practical, cost-effective solutions
 `;
 
     const result = await retryGeminiCall(() => 
@@ -408,7 +421,7 @@ If the image is unclear or you cannot identify a specific disease, please mentio
         ],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 1000,
+          maxOutputTokens: 800,
           topP: 0.9,
           topK: 40
         }
@@ -440,35 +453,65 @@ If the image is unclear or you cannot identify a specific disease, please mentio
  */
 const parseDiagnosisResponse = (responseText) => {
   const diagnosis = {
-    diseaseName: 'Unknown',
+    diseaseName: 'Unknown Disease',
     confidence: null,
     severity: 'medium',
     affectedArea: 'unknown',
-    treatmentType: 'organic'
+    treatmentType: 'organic',
+    estimatedCost: null,
+    estimatedTime: null
   };
 
-  // Extract disease name
-  const diseaseMatch = responseText.match(/disease[:\s]+([^\n]+)/i);
+  // Extract disease name - look for "Disease Identification" section
+  const diseaseMatch = responseText.match(/Disease Identification[:\s]*([^\n]+)/i) ||
+                      responseText.match(/disease[:\s]+([^\n]+)/i);
   if (diseaseMatch) {
-    diagnosis.diseaseName = diseaseMatch[1].trim();
+    diagnosis.diseaseName = diseaseMatch[1].trim().replace(/[^\w\s-]/g, '');
   }
 
-  // Extract confidence
-  const confidenceMatch = responseText.match(/confidence[:\s]+(\d+)%/i);
+  // Extract confidence - look for percentage in disease identification or confidence section
+  const confidenceMatch = responseText.match(/confidence[:\s]*(\d+)%/i) ||
+                         responseText.match(/(\d+)%/);
   if (confidenceMatch) {
     diagnosis.confidence = parseInt(confidenceMatch[1]);
   }
 
-  // Extract severity
-  const severityMatch = responseText.match(/severity[:\s]+(low|medium|high|critical)/i);
+  // Extract severity - look for "Severity Assessment" section
+  const severityMatch = responseText.match(/Severity Assessment[:\s]*(low|medium|high|critical)/i) ||
+                       responseText.match(/severity[:\s]+(low|medium|high|critical)/i);
   if (severityMatch) {
     diagnosis.severity = severityMatch[1].toLowerCase();
   }
 
-  // Extract affected area
-  const areaMatch = responseText.match(/affected[:\s]+(leaves|stems|roots|fruits|flowers|whole-plant)/i);
+  // Extract affected area - look for "Affected Plant Parts" section
+  const areaMatch = responseText.match(/Affected Plant Parts[:\s]*(leaves|stems|roots|fruits|flowers|whole-plant)/i) ||
+                   responseText.match(/affected[:\s]+(leaves|stems|roots|fruits|flowers|whole-plant)/i);
   if (areaMatch) {
     diagnosis.affectedArea = areaMatch[1].toLowerCase();
+  }
+
+  // Extract cost estimation - look for "Cost Estimation" section
+  const costMatch = responseText.match(/Cost Estimation[:\s]*.*?₹\s*(\d+(?:,\d+)*(?:\.\d+)?)/i) ||
+                   responseText.match(/₹\s*(\d+(?:,\d+)*(?:\.\d+)?)/i) ||
+                   responseText.match(/cost[:\s]*.*?(\d+(?:,\d+)*(?:\.\d+)?)/i);
+  if (costMatch) {
+    diagnosis.estimatedCost = parseFloat(costMatch[1].replace(/,/g, ''));
+  }
+
+  // Extract treatment timeline - look for "Treatment Timeline" section
+  const timeMatch = responseText.match(/Treatment Timeline[:\s]*([^\n]+)/i) ||
+                   responseText.match(/timeline[:\s]*([^\n]+)/i);
+  if (timeMatch) {
+    diagnosis.estimatedTime = timeMatch[1].trim();
+  }
+
+  // Determine treatment type based on content
+  if (responseText.toLowerCase().includes('organic') && !responseText.toLowerCase().includes('chemical')) {
+    diagnosis.treatmentType = 'organic';
+  } else if (responseText.toLowerCase().includes('chemical') && !responseText.toLowerCase().includes('organic')) {
+    diagnosis.treatmentType = 'chemical';
+  } else if (responseText.toLowerCase().includes('organic') && responseText.toLowerCase().includes('chemical')) {
+    diagnosis.treatmentType = 'mixed';
   }
 
   return diagnosis;

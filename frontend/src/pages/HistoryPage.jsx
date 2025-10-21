@@ -19,6 +19,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import CropPlanCard from '../components/CropPlanCard';
 import DiagnosisCard from '../components/DiagnosisCard';
 import CropPlanModal from '../components/CropPlanModal';
+import DiagnosisModal from '../components/DiagnosisModal';
 
 const HistoryPage = () => {
   const [history, setHistory] = useState([]);
@@ -29,7 +30,9 @@ const HistoryPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [selectedDiagnosis, setSelectedDiagnosis] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDiagnosisModalOpen, setIsDiagnosisModalOpen] = useState(false);
   const [isSelectAll, setIsSelectAll] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -82,15 +85,20 @@ const HistoryPage = () => {
     if (item.type === 'crop-plan') {
       setSelectedPlan(item.data);
       setIsModalOpen(true);
-    } else {
-      // Handle diagnosis view if needed
-      console.log('View diagnosis:', item);
+    } else if (item.type === 'diagnosis') {
+      setSelectedDiagnosis(item.data);
+      setIsDiagnosisModalOpen(true);
     }
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedPlan(null);
+  };
+
+  const handleCloseDiagnosisModal = () => {
+    setIsDiagnosisModalOpen(false);
+    setSelectedDiagnosis(null);
   };
 
   const handleSelectItem = (itemId, type) => {
@@ -515,6 +523,13 @@ const HistoryPage = () => {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         plan={selectedPlan}
+      />
+
+      {/* Diagnosis Modal */}
+      <DiagnosisModal
+        isOpen={isDiagnosisModalOpen}
+        onClose={handleCloseDiagnosisModal}
+        diagnosis={selectedDiagnosis}
       />
     </div>
   );

@@ -9,7 +9,9 @@ import {
   Volume2,
   FileImage,
   FileVideo,
-  Loader2
+  Loader2,
+  DollarSign,
+  MessageCircle
 } from 'lucide-react';
 import AudioPlayer from './AudioPlayer';
 
@@ -154,6 +156,30 @@ const DiagnosisCard = ({ diagnosis, onDelete, onView, isDeleting = false }) => {
           <p className="text-sm text-green-700 line-clamp-2">
             {diagnosis.remedy}
           </p>
+        </div>
+      )}
+
+      {/* Cost Information */}
+      {diagnosis.estimatedCost && (
+        <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <DollarSign className="w-4 h-4 text-blue-600" />
+            <span className="text-sm font-medium text-blue-700">
+              Estimated Cost: ₹{diagnosis.estimatedCost.toLocaleString()}/acre
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Follow-up Questions */}
+      {diagnosis.followUpQuestions && diagnosis.followUpQuestions.length > 0 && (
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center space-x-2 mb-2">
+            <MessageCircle className="w-4 h-4 text-primary-600" />
+            <span className="text-sm font-medium text-gray-700">
+              {diagnosis.followUpQuestions.length} Follow-up Question{diagnosis.followUpQuestions.length > 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
       )}
 

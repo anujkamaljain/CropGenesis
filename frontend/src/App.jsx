@@ -9,7 +9,6 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import CropPlanForm from './pages/CropPlanForm';
-import DiagnosisUpload from './pages/DiagnosisUpload';
 import HistoryPage from './pages/HistoryPage';
 import Profile from './pages/Profile';
 
@@ -98,7 +97,7 @@ const AppRoutes = () => {
             path="/diagnosis" 
             element={
               <ProtectedRoute>
-                <DiagnosisUpload />
+                <Dashboard />
               </ProtectedRoute>
             } 
           />

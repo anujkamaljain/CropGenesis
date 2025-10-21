@@ -99,6 +99,7 @@ export const diagnosisAPI = {
   deleteDiagnosis: (id) => api.delete(`/diagnosis/${id}`),
   getStats: () => api.get('/diagnosis/stats/summary'),
   getDiseases: () => api.get('/diagnosis/diseases/list'),
+  followUp: (followUpData) => api.post('/diagnosis/followup', followUpData),
 };
 
 export const historyAPI = {
