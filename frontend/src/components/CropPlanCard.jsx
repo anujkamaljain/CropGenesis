@@ -9,11 +9,12 @@ import {
   Trash2, 
   Eye,
   MessageCircle,
-  Volume2
+  Volume2,
+  Loader2
 } from 'lucide-react';
 import AudioPlayer from './AudioPlayer';
 
-const CropPlanCard = ({ plan, onDelete, onView }) => {
+const CropPlanCard = ({ plan, onDelete, onView, isDeleting = false }) => {
   const [showActions, setShowActions] = useState(false);
   const [showAudio, setShowAudio] = useState(false);
 
@@ -85,7 +86,7 @@ const CropPlanCard = ({ plan, onDelete, onView }) => {
             >
               <button
                 onClick={() => {
-                  onView(plan);
+                  onView();
                   setShowActions(false);
                 }}
                 className="flex items-center space-x-2 w-full px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors duration-200"
@@ -98,10 +99,20 @@ const CropPlanCard = ({ plan, onDelete, onView }) => {
                   onDelete(plan._id);
                   setShowActions(false);
                 }}
-                className="flex items-center space-x-2 w-full px-4 py-2 text-red-600 hover:bg-red-50 transition-colors duration-200"
+                disabled={isDeleting}
+                className="flex items-center space-x-2 w-full px-4 py-2 text-red-600 hover:bg-red-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Trash2 className="w-4 h-4" />
-                <span>Delete</span>
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete</span>
+                  </>
+                )}
               </button>
             </motion.div>
           )}
@@ -186,7 +197,7 @@ const CropPlanCard = ({ plan, onDelete, onView }) => {
         </div>
         
         <button
-          onClick={() => onView(plan)}
+          onClick={() => onView()}
           className="text-primary-600 hover:text-primary-700 text-sm font-medium transition-colors duration-200"
         >
           View Full Plan →

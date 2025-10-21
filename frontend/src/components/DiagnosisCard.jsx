@@ -8,11 +8,12 @@ import {
   Eye,
   Volume2,
   FileImage,
-  FileVideo
+  FileVideo,
+  Loader2
 } from 'lucide-react';
 import AudioPlayer from './AudioPlayer';
 
-const DiagnosisCard = ({ diagnosis, onDelete, onView }) => {
+const DiagnosisCard = ({ diagnosis, onDelete, onView, isDeleting = false }) => {
   const [showActions, setShowActions] = useState(false);
   const [showAudio, setShowAudio] = useState(false);
 
@@ -90,10 +91,20 @@ const DiagnosisCard = ({ diagnosis, onDelete, onView }) => {
                   onDelete(diagnosis._id);
                   setShowActions(false);
                 }}
-                className="flex items-center space-x-2 w-full px-4 py-2 text-red-600 hover:bg-red-50 transition-colors duration-200"
+                disabled={isDeleting}
+                className="flex items-center space-x-2 w-full px-4 py-2 text-red-600 hover:bg-red-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Trash2 className="w-4 h-4" />
-                <span>Delete</span>
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete</span>
+                  </>
+                )}
               </button>
             </motion.div>
           )}

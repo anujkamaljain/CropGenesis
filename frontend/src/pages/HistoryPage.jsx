@@ -9,7 +9,8 @@ import {
   Eye,
   Calendar,
   Sprout,
-  Camera
+  Camera,
+  Loader2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { historyAPI } from '../utils/api';
@@ -17,6 +18,7 @@ import { handleApiSuccess, handleApiError } from '../utils/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import CropPlanCard from '../components/CropPlanCard';
 import DiagnosisCard from '../components/DiagnosisCard';
+import CropPlanModal from '../components/CropPlanModal';
 
 const HistoryPage = () => {
   const [history, setHistory] = useState([]);
@@ -26,6 +28,10 @@ const HistoryPage = () => {
   const [filter, setFilter] = useState('all'); // 'all', 'crop-plans', 'diagnoses'
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState([]);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSelectAll, setIsSelectAll] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchHistory();
@@ -55,22 +61,41 @@ const HistoryPage = () => {
 
   const handleDeleteItem = async (type, id) => {
     try {
-      await historyAPI.deleteItem(type, id);
+      setIsDeleting(true);
+      // Convert plural types to singular for API
+      const apiType = type === 'crop-plans' ? 'crop-plan' : 'diagnosis';
+      
+      console.log('Deleting item:', { type, id, apiType });
+      
+      await historyAPI.deleteItem(apiType, id);
       handleApiSuccess('Item deleted successfully');
       fetchHistory();
     } catch (error) {
+      console.error('Delete item error:', { type, id, error });
       handleApiError(error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleViewItem = (item) => {
-    // This would open a modal or navigate to detail view
-    console.log('View item:', item);
+    if (item.type === 'crop-plan') {
+      setSelectedPlan(item.data);
+      setIsModalOpen(true);
+    } else {
+      // Handle diagnosis view if needed
+      console.log('View diagnosis:', item);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedPlan(null);
   };
 
   const handleSelectItem = (itemId, type) => {
     setSelectedItems(prev => {
-      const itemKey = `${type}-${itemId}`;
+      const itemKey = `${type}|${itemId}`;
       if (prev.includes(itemKey)) {
         return prev.filter(id => id !== itemKey);
       } else {
@@ -79,31 +104,85 @@ const HistoryPage = () => {
     });
   };
 
+  const handleSelectAll = () => {
+    if (isSelectAll) {
+      setSelectedItems([]);
+      setIsSelectAll(false);
+    } else {
+      const allItems = filteredHistory.map(item => 
+        `${item.type === 'crop-plan' ? 'crop-plans' : 'diagnoses'}|${item.id}`
+      );
+      setSelectedItems(allItems);
+      setIsSelectAll(true);
+    }
+  };
+
   const handleBulkDelete = async () => {
     if (selectedItems.length === 0) return;
 
     try {
+      // Show confirmation dialog
+      const confirmed = window.confirm(
+        `Are you sure you want to delete ${selectedItems.length} selected item${selectedItems.length > 1 ? 's' : ''}? This action cannot be undone.`
+      );
+      
+      if (!confirmed) return;
+
+      setIsDeleting(true);
+      console.log('Bulk deleting items:', selectedItems);
+      
       for (const itemKey of selectedItems) {
-        const [type, id] = itemKey.split('-');
-        await historyAPI.deleteItem(type, id);
+        const [type, id] = itemKey.split('|');
+        
+        console.log('Processing item:', { itemKey, type, id });
+        
+        // Validate the parsed data
+        if (!type || !id) {
+          console.error('Invalid item key format:', itemKey);
+          continue;
+        }
+        
+        // Convert plural types to singular for API
+        const apiType = type === 'crop-plans' ? 'crop-plan' : 'diagnosis';
+        
+        console.log('Deleting with API type:', apiType, 'and id:', id);
+        
+        try {
+          await historyAPI.deleteItem(apiType, id);
+        } catch (error) {
+          console.error(`Failed to delete ${apiType} with id ${id}:`, error);
+          // Continue with other items even if one fails
+        }
       }
       
-      handleApiSuccess(`${selectedItems.length} items deleted successfully`);
+      handleApiSuccess(`${selectedItems.length} item${selectedItems.length > 1 ? 's' : ''} deleted successfully`);
       setSelectedItems([]);
+      setIsSelectAll(false);
       fetchHistory();
     } catch (error) {
       handleApiError(error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleClearAll = async () => {
-    if (window.confirm('Are you sure you want to clear all history? This action cannot be undone.')) {
+    const filterText = filter === 'all' ? 'all history' : 
+                      filter === 'crop-plans' ? 'all crop plans' : 
+                      'all diagnoses';
+    
+    if (window.confirm(`Are you sure you want to clear ${filterText}? This action cannot be undone.`)) {
       try {
+        setIsDeleting(true);
         await historyAPI.clearHistory(filter !== 'all' ? filter : undefined);
-        handleApiSuccess('History cleared successfully');
+        handleApiSuccess(`${filterText} cleared successfully`);
+        setSelectedItems([]);
+        setIsSelectAll(false);
         fetchHistory();
       } catch (error) {
         handleApiError(error);
+      } finally {
+        setIsDeleting(false);
       }
     }
   };
@@ -162,18 +241,38 @@ const HistoryPage = () => {
             </div>
 
             {selectedItems.length > 0 && (
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">
-                  {selectedItems.length} selected
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center space-x-3 bg-red-50 border border-red-200 rounded-lg px-4 py-2"
+              >
+                <span className="text-sm font-medium text-red-700">
+                  {selectedItems.length} item{selectedItems.length > 1 ? 's' : ''} selected
                 </span>
                 <button
                   onClick={handleBulkDelete}
-                  className="btn-secondary flex items-center"
+                  disabled={isDeleting}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Selected
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Selected
+                    </>
+                  )}
                 </button>
-              </div>
+                <button
+                  onClick={() => setSelectedItems([])}
+                  className="text-red-600 hover:text-red-700 text-sm font-medium transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+              </motion.div>
             )}
           </div>
         </motion.div>
@@ -229,15 +328,46 @@ const HistoryPage = () => {
 
           {/* Actions */}
           <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
-            <div className="text-sm text-gray-600">
-              Showing {filteredHistory.length} of {history.length} items
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-gray-600">
+                Showing {filteredHistory.length} of {history.length} items
+              </div>
+              {filteredHistory.length > 0 && (
+                <button
+                  onClick={handleSelectAll}
+                  className="text-sm text-primary-600 hover:text-primary-700 transition-colors duration-200 font-medium"
+                >
+                  {isSelectAll ? 'Deselect All' : 'Select All'}
+                </button>
+              )}
             </div>
-            <button
-              onClick={handleClearAll}
-              className="text-sm text-red-600 hover:text-red-700 transition-colors duration-200"
-            >
-              Clear All History
-            </button>
+            <div className="flex items-center space-x-4">
+              {selectedItems.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSelectedItems([]);
+                    setIsSelectAll(false);
+                  }}
+                  className="text-sm text-gray-600 hover:text-gray-700 transition-colors duration-200"
+                >
+                  Clear Selection
+                </button>
+              )}
+              <button
+                onClick={handleClearAll}
+                disabled={isDeleting}
+                className="text-sm text-red-600 hover:text-red-700 transition-colors duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    Clearing...
+                  </>
+                ) : (
+                  'Clear All History'
+                )}
+              </button>
+            </div>
           </div>
         </motion.div>
 
@@ -261,31 +391,45 @@ const HistoryPage = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 * index }}
-                  className="relative"
+                  className="relative group"
+                  whileHover={{ y: -2 }}
                 >
                   {/* Selection Checkbox */}
                   <div className="absolute top-4 left-4 z-10">
-                    <input
-                      type="checkbox"
-                      checked={selectedItems.includes(`${item.type === 'crop-plan' ? 'crop-plans' : 'diagnoses'}-${item.id}`)}
+                    <motion.div
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <input
+                        type="checkbox"
+                      checked={selectedItems.includes(`${item.type === 'crop-plan' ? 'crop-plans' : 'diagnoses'}|${item.id}`)}
                       onChange={() => handleSelectItem(item.id, item.type === 'crop-plan' ? 'crop-plans' : 'diagnoses')}
-                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                    />
+                        className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
+                      />
+                    </motion.div>
                   </div>
 
-                  {item.type === 'crop-plan' ? (
-                    <CropPlanCard
-                      plan={item.data}
-                      onDelete={(id) => handleDeleteItem('crop-plans', id)}
-                      onView={handleViewItem}
-                    />
-                  ) : (
-                    <DiagnosisCard
-                      diagnosis={item.data}
-                      onDelete={(id) => handleDeleteItem('diagnoses', id)}
-                      onView={handleViewItem}
-                    />
-                  )}
+                  <div className={`transition-all duration-200 ${
+                    selectedItems.includes(`${item.type === 'crop-plan' ? 'crop-plans' : 'diagnoses'}|${item.id}`)
+                      ? 'ring-2 ring-primary-500 ring-opacity-50' 
+                      : ''
+                  }`}>
+                    {item.type === 'crop-plan' ? (
+                      <CropPlanCard
+                        plan={item.data}
+                        onDelete={(id) => handleDeleteItem('crop-plans', id)}
+                        onView={() => handleViewItem(item)}
+                        isDeleting={isDeleting}
+                      />
+                    ) : (
+                      <DiagnosisCard
+                        diagnosis={item.data}
+                        onDelete={(id) => handleDeleteItem('diagnoses', id)}
+                        onView={() => handleViewItem(item)}
+                        isDeleting={isDeleting}
+                      />
+                    )}
+                  </div>
                 </motion.div>
               ))}
             </motion.div>
@@ -365,6 +509,13 @@ const HistoryPage = () => {
           </motion.div>
         )}
       </div>
+
+      {/* Crop Plan Modal */}
+      <CropPlanModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        plan={selectedPlan}
+      />
     </div>
   );
 };

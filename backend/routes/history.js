@@ -137,6 +137,16 @@ router.delete('/delete/:type/:id', authenticateToken, async (req, res) => {
     const { type, id } = req.params;
     const userId = req.user._id;
 
+    console.log('Delete request:', { type, id, userId });
+
+    // Validate ObjectId format
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid ID format'
+      });
+    }
+
     let result;
 
     if (type === 'crop-plan') {
