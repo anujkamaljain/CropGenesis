@@ -59,7 +59,6 @@ const diagnosisSchema = new mongoose.Schema({
   },
   affectedArea: {
     type: String,
-    enum: ['leaves', 'stems', 'roots', 'fruits', 'flowers', 'whole-plant', 'unknown'],
     default: 'unknown'
   },
   treatmentType: {
@@ -76,10 +75,6 @@ const diagnosisSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  tags: [{
-    type: String,
-    trim: true
-  }],
   followUpQuestions: [{
     question: {
       type: String,
@@ -89,7 +84,7 @@ const diagnosisSchema = new mongoose.Schema({
     answer: {
       type: String,
       required: true,
-      maxlength: [2000, 'Answer cannot exceed 2000 characters']
+      maxlength: [10000, 'Answer cannot exceed 10000 characters']
     },
     timestamp: {
       type: Date,
@@ -113,7 +108,6 @@ diagnosisSchema.index({ userId: 1, createdAt: -1 });
 diagnosisSchema.index({ diseaseName: 1 });
 diagnosisSchema.index({ severity: 1 });
 diagnosisSchema.index({ affectedArea: 1 });
-diagnosisSchema.index({ tags: 1 });
 
 // Virtual for diagnosis summary
 diagnosisSchema.virtual('summary').get(function() {
@@ -128,6 +122,16 @@ diagnosisSchema.virtual('summary').get(function() {
     createdAt: this.createdAt
   };
 });
+
+// Method to add follow-up question
+diagnosisSchema.methods.addFollowUp = function(question, answer) {
+  this.followUpQuestions.push({
+    question,
+    answer,
+    timestamp: new Date()
+  });
+  return this.save();
+};
 
 // Static method to get user's diagnoses with pagination
 diagnosisSchema.statics.getUserDiagnoses = function(userId, page = 1, limit = 10) {

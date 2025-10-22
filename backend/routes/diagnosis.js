@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const router = express.Router();
 const Diagnosis = require('../models/Diagnosis');
 const { authenticateToken } = require('../middleware/auth');
+const { validateDiagnosisFollowUp } = require('../middleware/validation');
 const { handleUpload, validateFile, cleanupFile, getFileInfo } = require('../utils/upload');
 const { analyzeDisease, generateTTS } = require('../utils/gemini');
 
@@ -25,7 +26,18 @@ router.post('/upload', authenticateToken, handleUpload, validateFile, async (req
     // Analyze disease using Gemini AI
     const aiResponse = await analyzeDisease(filePath, fileInfo.type, userLanguage);
     
+    console.log('AI Analysis Response:', aiResponse);
+    
     if (!aiResponse.success) {
+      // Check if it's an invalid image error
+      if (aiResponse.message && aiResponse.message.toLowerCase().includes('please upload a valid plant image')) {
+        console.log('Invalid image detected:', aiResponse.message);
+        return res.status(400).json({
+          success: false,
+          message: aiResponse.message
+        });
+      }
+      
       return res.status(500).json({
         success: false,
         message: 'Failed to analyze disease'
@@ -50,7 +62,7 @@ router.post('/upload', authenticateToken, handleUpload, validateFile, async (req
       fileName: fileInfo.originalName,
       fileSize: fileInfo.size,
       diagnosisText: truncateText(aiResponse.diagnosisText, 15000),
-      remedy: truncateText(aiResponse.diagnosisText, 15000), // The full diagnosis text includes treatment information
+      remedy: truncateText(aiResponse.remedyText, 15000), // Now using separate remedy text
       audioURL: audioURL,
       confidence: aiResponse.confidence,
       diseaseName: truncateText(aiResponse.diseaseName, 500),
@@ -247,70 +259,83 @@ router.get('/stats/summary', authenticateToken, async (req, res) => {
  * @desc    Generate follow-up response for diagnosis questions
  * @access  Private
  */
-router.post('/followup', authenticateToken, async (req, res) => {
+router.post('/followup', authenticateToken, validateDiagnosisFollowUp, async (req, res) => {
   try {
     const { diagnosisId, question } = req.body;
     const userId = req.user._id;
     const userLanguage = req.user.language || 'en';
 
-    if (!diagnosisId || !question) {
-      return res.status(400).json({
-        success: false,
-        message: 'Diagnosis ID and question are required'
-      });
-    }
+    console.log('Diagnosis follow-up request received:', { 
+      diagnosisId, 
+      question: question?.substring(0, 50) + '...',
+      userId: userId.toString()
+    });
+
 
     // Get the original diagnosis
+    console.log('Looking for diagnosis with ID:', diagnosisId, 'and userId:', userId.toString());
     const diagnosis = await Diagnosis.findOne({ _id: diagnosisId, userId });
     if (!diagnosis) {
+      console.log('Diagnosis not found in database');
       return res.status(404).json({
         success: false,
         message: 'Diagnosis not found'
       });
     }
+    console.log('Diagnosis found:', diagnosis.diseaseName);
 
     // Generate follow-up response using Gemini AI
-    const { generateFollowUpResponse } = require('../utils/gemini');
-    const aiResponse = await generateFollowUpResponse(
+    console.log('Generating AI response...');
+    const { generateDiagnosisFollowUpResponse } = require('../utils/gemini');
+    const aiResponse = await generateDiagnosisFollowUpResponse(
       diagnosisId,
       question,
       diagnosis.diagnosisText,
       userLanguage
     );
 
+    console.log('AI Response received:', aiResponse);
+    console.log('Answer length:', aiResponse.answerText?.length);
+
     if (!aiResponse.success) {
+      console.log('AI response failed:', aiResponse);
       return res.status(500).json({
         success: false,
         message: 'Failed to generate follow-up response'
       });
     }
 
-    // Add follow-up question to the diagnosis
-    if (!diagnosis.followUpQuestions) {
-      diagnosis.followUpQuestions = [];
+    // Truncate answer if it's too long (safety measure)
+    let answerText = aiResponse.answerText;
+    if (answerText && answerText.length > 10000) {
+      console.log('Answer too long, truncating from', answerText.length, 'to 10000 characters');
+      answerText = answerText.substring(0, 10000) + '... [Response truncated]';
     }
 
-    diagnosis.followUpQuestions.push({
-      question: question,
-      answer: aiResponse.answerText,
-      timestamp: new Date()
-    });
-
-    await diagnosis.save();
+    // Add follow-up question to the diagnosis
+    console.log('Saving follow-up to database...');
+    await diagnosis.addFollowUp(question, answerText);
+    console.log('Follow-up saved successfully');
 
     res.json({
       success: true,
       data: {
-        answer: aiResponse.answerText,
+        answer: answerText,
         language: userLanguage
       }
     });
 
   } catch (error) {
     console.error('Follow-up diagnosis error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({
       success: false,
-      message: 'Failed to generate follow-up response'
+      message: 'Failed to generate follow-up response',
+      error: error.message
     });
   }
 });

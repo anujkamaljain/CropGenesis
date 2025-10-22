@@ -251,6 +251,93 @@ STRICT RULES:
 };
 
 /**
+ * Generate follow-up response for diagnosis questions
+ * @param {string} diagnosisId - ID of the original diagnosis
+ * @param {string} question - User's follow-up question
+ * @param {string} originalDiagnosis - Original diagnosis text
+ * @param {string} language - Preferred language
+ * @returns {Object} Follow-up response
+ */
+const generateDiagnosisFollowUpResponse = async (diagnosisId, question, originalDiagnosis, language) => {
+  try {
+    // Check if genAI is available
+    if (!genAI) {
+      throw new Error('Gemini API key is not configured');
+    }
+
+    const languageMap = {
+      'en': 'English',
+      'hi': 'Hindi',
+      'te': 'Telugu',
+      'ta': 'Tamil',
+      'bn': 'Bengali',
+      'mr': 'Marathi',
+      'gu': 'Gujarati',
+      'kn': 'Kannada',
+      'ml': 'Malayalam',
+      'or': 'Odia',
+      'pa': 'Punjabi',
+      'as': 'Assamese'
+    };
+
+    const lang = languageMap[language] || 'English';
+
+    const prompt = `
+You are an expert plant pathologist helping a farmer with a follow-up question about their disease diagnosis. You have full context of their original diagnosis and should provide detailed, contextual answers. 
+
+CRITICAL FORMATTING RULES:
+- NEVER use asterisks (*) anywhere in your response
+- NEVER use double asterisks (**) for bold formatting
+- Use plain text formatting only - no markdown, no special characters
+- Do not use any formatting characters like *, **, _, __, etc.
+
+ORIGINAL DISEASE DIAGNOSIS CONTEXT:
+${originalDiagnosis}
+
+FARMER'S FOLLOW-UP QUESTION: ${question}
+
+Please provide a comprehensive, helpful answer in ${lang}. Make sure to:
+1. Address the specific question directly and thoroughly
+2. Reference relevant details from the original diagnosis when applicable
+3. Provide practical, actionable advice specific to their disease situation
+4. Use simple language suitable for farmers
+5. Include specific recommendations, quantities, timings, or methods
+6. If the question is about alternative treatments mentioned in the diagnosis, provide detailed comparisons
+7. If asking about implementation details, give step-by-step guidance
+8. If asking about problems or concerns, provide solutions and preventive measures
+
+Remember: You have full context of their disease diagnosis from the original analysis. Use this context to give personalized advice.
+Keep the response detailed but well-structured (under 2000 words).
+`;
+
+    const result = await retryGeminiCall(() => 
+      genAI.models.generateContent({
+        model: "gemini-2.5-flash-lite",
+        contents: prompt,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2000,
+          topP: 0.9,
+          topK: 40
+        }
+      })
+    );
+
+    const answerText = result.candidates[0].content.parts[0].text;
+
+    return {
+      success: true,
+      answerText,
+      language
+    };
+
+  } catch (error) {
+    console.error('Error generating diagnosis follow-up response:', error);
+    throw error;
+  }
+};
+
+/**
  * Generate follow-up response for crop plan questions
  * @param {string} planId - ID of the original plan
  * @param {string} question - User's follow-up question
@@ -371,40 +458,40 @@ const analyzeDisease = async (filePath, fileType, language) => {
     const base64Data = fileData.toString('base64');
 
     const prompt = `
-You are an expert plant pathologist helping a farmer in India. Analyze this ${fileType} and provide a concise disease diagnosis.
+You are an expert plant pathologist helping a farmer in India. Analyze this ${fileType} and provide a disease diagnosis in TWO SEPARATE SECTIONS.
 
-Start with "Namaste Kisaan Bhai" in ${lang}, then provide:
+IMPORTANT: First check if the image contains plants, crops, or agricultural land. If the image shows anything else (people, animals, objects, non-plant subjects), respond with ONLY: "Please upload a valid plant image for diagnosis" in ${lang}.
 
-1. **Disease Identification**: Disease name and confidence level (0-100%)
+If the image contains plants/crops, start with "Namaste Kisaan Bhai" in ${lang}, then provide:
 
-2. **Symptoms**: Brief description of visible symptoms
+=== DIAGNOSIS SECTION ===
+1. Disease Identification: Disease name and confidence level (0-100%)
+2. Symptoms: Brief description of visible symptoms
+3. Affected Parts: Which plant parts are affected (leaves, stems, roots, fruits, flowers, whole-plant)
+4. Severity: Rate as low, medium, high, or critical
+5. Root Cause: What causes this disease
 
-3. **Affected Parts**: Which plant parts are affected (leaves, stems, roots, fruits, flowers, whole-plant)
-
-4. **Severity**: Rate as low, medium, high, or critical
-
-5. **Root Cause**: What causes this disease
-
-6. **Treatment Plan**: 
+=== REMEDY SECTION ===
+6. Treatment Plan: 
    - Organic remedies (preferred)
    - Chemical treatments (if needed)
    - Cultural practices
+7. Cost Estimation: Cost per acre in ₹ (include materials, labor, equipment)
+8. Timeline: How long treatment takes and when to expect results
+9. Prevention: How to prevent this disease in future
+10. Additional Tips: When to seek help, emergency measures
 
-7. **Cost Estimation**: Cost per acre in ₹ (include materials, labor, equipment)
+End with: "If you have questions, ask below. Wishing you healthy crops!" in ${lang}
 
-8. **Timeline**: How long treatment takes and when to expect results
-
-9. **Prevention**: How to prevent this disease in future
-
-10. **Additional Tips**: When to seek help, emergency measures
-
-Keep each point concise but informative. Use simple language for Indian farmers. End with: "If you have questions, ask below. Wishing you healthy crops!" in ${lang}
-
-STRICT RULES:
-- NO asterisks (*) - use plain text only
-- RESPOND IN ${lang}
-- Keep response under 2000 characters total
+CRITICAL FORMATTING RULES:
+- NEVER use asterisks (*) anywhere in your response
+- NEVER use double asterisks (**) for bold formatting
+- Use plain text formatting only - no markdown, no special characters
+- Do not use any formatting characters like *, **, _, __, etc.
+- RESPOND ENTIRELY IN ${lang}
+- Keep total response under 3000 characters
 - Focus on practical, cost-effective solutions
+- Clearly separate diagnosis and remedy sections
 `;
 
     const result = await retryGeminiCall(() => 
@@ -428,14 +515,27 @@ STRICT RULES:
       })
     );
 
-    const diagnosisText = result.candidates[0].content.parts[0].text;
+    const fullResponse = result.candidates[0].content.parts[0].text;
+
+    // Check if this is an invalid image response
+    if (fullResponse.toLowerCase().includes('please upload a valid plant image')) {
+      return {
+        success: false,
+        message: fullResponse,
+        language
+      };
+    }
+
+    // Parse the response to separate diagnosis and remedy sections
+    const { diagnosisText, remedyText } = parseDiagnosisAndRemedy(fullResponse);
 
     // Extract structured information from the response
-    const diagnosis = parseDiagnosisResponse(diagnosisText);
+    const diagnosis = parseDiagnosisResponse(fullResponse);
 
     return {
       success: true,
       diagnosisText,
+      remedyText,
       ...diagnosis,
       language
     };
@@ -444,6 +544,73 @@ STRICT RULES:
     console.error('Error analyzing disease:', error);
     throw error;
   }
+};
+
+/**
+ * Parse diagnosis response to separate diagnosis and remedy sections
+ * @param {string} responseText - Raw response from Gemini
+ * @returns {Object} Separated diagnosis and remedy text
+ */
+const parseDiagnosisAndRemedy = (responseText) => {
+  // Split the response into diagnosis and remedy sections
+  const diagnosisSection = [];
+  const remedySection = [];
+  let currentSection = 'diagnosis';
+  
+  const lines = responseText.split('\n');
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    
+    // Check for section markers
+    if (trimmedLine.includes('=== DIAGNOSIS SECTION ===')) {
+      currentSection = 'diagnosis';
+      continue;
+    } else if (trimmedLine.includes('=== REMEDY SECTION ===')) {
+      currentSection = 'remedy';
+      continue;
+    }
+    
+    // Skip empty lines and section markers
+    if (!trimmedLine || trimmedLine.includes('===')) {
+      continue;
+    }
+    
+    // Add line to appropriate section
+    if (currentSection === 'diagnosis') {
+      diagnosisSection.push(line);
+    } else if (currentSection === 'remedy') {
+      remedySection.push(line);
+    }
+  }
+  
+  // If no clear sections found, try to split by content
+  if (diagnosisSection.length === 0 && remedySection.length === 0) {
+    const lines = responseText.split('\n');
+    let diagnosisEndIndex = -1;
+    
+    // Look for the end of diagnosis section (usually around treatment plan)
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].toLowerCase();
+      if (line.includes('treatment') || line.includes('remedy') || line.includes('cost estimation')) {
+        diagnosisEndIndex = i;
+        break;
+      }
+    }
+    
+    if (diagnosisEndIndex > 0) {
+      diagnosisSection.push(...lines.slice(0, diagnosisEndIndex));
+      remedySection.push(...lines.slice(diagnosisEndIndex));
+    } else {
+      // Fallback: put everything in diagnosis, empty remedy
+      diagnosisSection.push(...lines);
+    }
+  }
+  
+  return {
+    diagnosisText: diagnosisSection.join('\n').trim(),
+    remedyText: remedySection.join('\n').trim()
+  };
 };
 
 /**
@@ -483,11 +650,26 @@ const parseDiagnosisResponse = (responseText) => {
     diagnosis.severity = severityMatch[1].toLowerCase();
   }
 
-  // Extract affected area - look for "Affected Plant Parts" section
-  const areaMatch = responseText.match(/Affected Plant Parts[:\s]*(leaves|stems|roots|fruits|flowers|whole-plant)/i) ||
+  // Extract affected area - look for "Affected Parts" section
+  console.log('Full response text for area matching:', responseText);
+  
+  const areaMatch = responseText.match(/Affected Parts[:\s]*(leaves|stems|roots|fruits|flowers|whole-plant)/i) ||
+                   responseText.match(/Affected Plant Parts[:\s]*(leaves|stems|roots|fruits|flowers|whole-plant)/i) ||
                    responseText.match(/affected[:\s]+(leaves|stems|roots|fruits|flowers|whole-plant)/i);
+  
+  console.log('Area match result:', areaMatch);
+  
   if (areaMatch) {
     diagnosis.affectedArea = areaMatch[1].toLowerCase();
+    console.log('Extracted affected area:', diagnosis.affectedArea);
+  } else {
+    console.log('No affected area match found in response');
+    // Try a more flexible match
+    const flexibleMatch = responseText.match(/(leaves|stems|roots|fruits|flowers|whole-plant)/i);
+    if (flexibleMatch) {
+      diagnosis.affectedArea = flexibleMatch[1].toLowerCase();
+      console.log('Extracted affected area with flexible match:', diagnosis.affectedArea);
+    }
   }
 
   // Extract cost estimation - look for "Cost Estimation" section
@@ -557,6 +739,7 @@ const generateTTS = async (text, language) => {
 module.exports = {
   generateCropPlan,
   generateFollowUpResponse,
+  generateDiagnosisFollowUpResponse,
   analyzeDisease,
   generateTTS,
   testGeminiConnection,

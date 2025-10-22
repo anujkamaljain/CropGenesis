@@ -94,6 +94,7 @@ export const diagnosisAPI = {
       'Content-Type': 'multipart/form-data',
     },
   }),
+  getById: (id) => api.get(`/diagnosis/${id}`),
   getDiagnosis: (id) => api.get(`/diagnosis/${id}`),
   getDiagnoses: (params) => api.get('/diagnosis', { params }),
   deleteDiagnosis: (id) => api.delete(`/diagnosis/${id}`),

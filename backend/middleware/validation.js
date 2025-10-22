@@ -100,6 +100,18 @@ const validateFollowUp = [
   handleValidationErrors
 ];
 
+// Diagnosis follow-up question validation
+const validateDiagnosisFollowUp = [
+  body('diagnosisId')
+    .isMongoId()
+    .withMessage('Invalid diagnosis ID'),
+  body('question')
+    .trim()
+    .isLength({ min: 1, max: 1000 })
+    .withMessage('Question must be between 1 and 1000 characters'),
+  handleValidationErrors
+];
+
 // Pagination validation
 const validatePagination = [
   query('page')
@@ -127,6 +139,7 @@ module.exports = {
   validateChangePassword,
   validateCropPlan,
   validateFollowUp,
+  validateDiagnosisFollowUp,
   validatePagination,
   validateObjectId,
   handleValidationErrors

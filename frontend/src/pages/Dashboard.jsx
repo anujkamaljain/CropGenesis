@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Upload, 
@@ -19,6 +20,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import AudioPlayer from '../components/AudioPlayer';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -67,18 +69,9 @@ const Dashboard = () => {
       const response = await diagnosisAPI.upload(formData);
       
       if (response.data.success) {
-        setAnalysisResult(response.data.data);
-        
-        // Load existing follow-up questions if any
-        if (response.data.data.diagnosis.followUpQuestions && response.data.data.diagnosis.followUpQuestions.length > 0) {
-          const existingThread = response.data.data.diagnosis.followUpQuestions.map(qa => ({
-            question: qa.question,
-            answer: qa.answer,
-            timestamp: qa.timestamp
-          }));
-          setFollowUpThread(existingThread);
-        }
-        
+        // Redirect to diagnosis display page
+        const diagnosisId = response.data.data.diagnosis.id;
+        navigate(`/diagnosis/${diagnosisId}`);
         handleApiSuccess('Disease analysis completed successfully!');
       }
     } catch (error) {

@@ -42,7 +42,7 @@ const DiagnosisModal = ({ isOpen, onClose, diagnosis }) => {
       setIsGeneratingFollowUp(true);
 
       const response = await diagnosisAPI.followUp({
-        diagnosisId: diagnosis._id,
+        diagnosisId: diagnosis.id,
         question: followUpQuestion
       });
 
@@ -203,6 +203,22 @@ const DiagnosisModal = ({ isOpen, onClose, diagnosis }) => {
                     </div>
                   )}
                 </div>
+
+                {/* Remedy Section */}
+                {diagnosis.remedy && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <div className="flex items-center mb-4">
+                      <CheckCircle className="w-6 h-6 text-blue-600 mr-2" />
+                      <h3 className="text-lg font-semibold text-gray-900">Treatment & Remedy</h3>
+                    </div>
+                    
+                    <div className="prose max-w-none">
+                      <div className="whitespace-pre-wrap text-gray-700">
+                        {diagnosis.remedy}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Follow-up Questions Section */}
                 <div className="bg-white border border-gray-200 rounded-lg p-6">
