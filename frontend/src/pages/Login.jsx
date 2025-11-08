@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { Sprout, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { handleApiSuccess, handleApiError } from '../utils/api';
+import { getApiUrl } from '../utils/config';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const Login = () => {
@@ -24,11 +25,13 @@ const Login = () => {
     alert('Test function called!');
   };
 
-  // Test API directly
+  // Test API directly (using dynamic API URL)
   const testAPI = async () => {
     console.log('=== TESTING API DIRECTLY ===');
+    const apiUrl = getApiUrl();
+    
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

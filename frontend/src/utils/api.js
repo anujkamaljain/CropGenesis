@@ -1,14 +1,17 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { getApiUrl } from './config';
 
-// Create axios instance
+// Create axios instance with dynamic API URL
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: getApiUrl(),
   // Increase timeout to accommodate AI generation latency
   timeout: 60000, // 60 seconds
   headers: {
     'Content-Type': 'application/json',
   },
+  // Enable credentials for CORS
+  withCredentials: true, // Set to true if backend requires credentials
 });
 
 // Request interceptor to add auth token
@@ -31,10 +34,33 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.code === 'ECONNABORTED') {
-      toast.error('Request timed out. The AI may still be processing, please try again shortly.');
+    // Handle network errors (CORS, connection refused, etc.)
+    if (!error.response) {
+      if (error.code === 'ECONNABORTED') {
+        toast.error('Request timed out. The AI may still be processing, please try again shortly.');
+        return Promise.reject(error);
+      }
+      
+      // Check for CORS errors
+      if (error.message && (
+        error.message.includes('CORS') || 
+        error.message.includes('Network Error') ||
+        error.message.includes('Failed to fetch')
+      )) {
+        const apiUrl = getApiUrl();
+        console.error('🌐 CORS/Network Error:', {
+          message: error.message,
+          apiUrl,
+          currentOrigin: window.location.origin,
+        });
+        toast.error('Connection error. Please check if the backend server is running and CORS is configured correctly.');
+        return Promise.reject(error);
+      }
+      
+      toast.error('Network error. Please check your connection.');
       return Promise.reject(error);
     }
+
     const message = error.response?.data?.message || 'An error occurred';
     
     // Handle specific error cases

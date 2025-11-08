@@ -72,7 +72,7 @@ const Navbar = () => {
 
   const navItems = [
     { path: '/', icon: Home, label: 'Home' },
-    { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { path: '/dashboard', icon: LayoutDashboard, label: 'Crop Analysis' },
   ];
 
   const isActive = (path) => location.pathname === path;
